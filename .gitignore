@@ -1,0 +1,7 @@
+/target/
+/dxid-data/
+/sdk-js/dist/
+/**/node_modules/
+/.vscode/
+/.idea/
+/.DS_Store

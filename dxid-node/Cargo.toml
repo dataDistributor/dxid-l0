@@ -1,0 +1,22 @@
+[package]
+name = "dxid-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+parking_lot = { workspace = true }
+hex = { workspace = true }
+axum = { workspace = true }
+uuid = { workspace = true }
+rand = { workspace = true }
+reqwest = { workspace = true }
+# Make sure "sync" is enabled for BroadcastStream
+tokio-stream = { workspace = true }
+futures-util = { workspace = true }
+
+dxid-runtime = { path = "../dxid-runtime" }
+dxid-crypto = { path = "../dxid-crypto" }

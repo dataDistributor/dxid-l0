@@ -1,0 +1,18 @@
+[package]
+name = "dxid-crypto"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# Dev engine is always compiled; real STARK engine can replace it behind this feature.
+stark_winterfell = []
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+blake3 = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
+# winterfell = { workspace = true, optional = true } # enable when wiring the real engine

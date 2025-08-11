@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+  "dxid-crypto",
+  "dxid-runtime",
+  "dxid-node",
+  "dxid-cli",
+]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["dxID Contributors"]
+
+[workspace.dependencies]
+anyhow = "1"
+thiserror = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+blake3 = "1"
+rand = "0.8"
+clap = { version = "4", features = ["derive"] }
+inquire = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "time", "net"] }
+parking_lot = "0.12"
+uuid = { version = "1", features = ["v4", "serde"] }
+hex = "0.4"
+axum = "0.7"
+reqwest = { version = "0.12", features = ["json", "blocking", "rustls-tls"] }
+# IMPORTANT: BroadcastStream is behind the "sync" feature
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = "0.3"
