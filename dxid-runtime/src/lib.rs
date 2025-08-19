@@ -1,37 +1,66 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
-use uuid::Uuid;
 
-use dxid_crypto::{PublicKeyHash, StarkSignature, ENGINE as STARK};
-use dxid_crypto::StarkSignEngine; // trait in scope
+use dxid_crypto::{StarkSignEngine, ENGINE as STARK};
+use dxid_smt::{H256, SparseMerkleTree, SmtProof};
 
-mod smt;
-pub const CHAIN_ID: u32 = 7777;
+// Import the storage module
+pub mod storage;
+use storage::{Storage, StorageConfig};
+
+pub const CHAIN_ID: u32 = 1337;
+
+// Layer0 Token Constants - STORE OF VALUE
+pub const LAYER0_TOTAL_SUPPLY: u128 = 10_000_000_000_000_000; // 10 billion with 8 decimals
+pub const LAYER0_BLOCK_REWARD: u128 = 100_000_000_000; // 100 L0 tokens per block
+pub const LAYER0_HALVING_BLOCKS: u64 = 100_000; // Halve every 100,000 blocks
+pub const LAYER0_DECIMALS: u8 = 8; // 8 decimals like Bitcoin
+pub const LAYER0_ZERO_FEES: bool = true; // NO TRANSACTION FEES - PURE STORE OF VALUE
+pub const LAYER0_APPRECIATION_RATE: u64 = 1000; // 0.1% appreciation per block
+
+
+// LongYield L1 Token Constants
+pub const LONGYIELD_CHAIN_ID: u32 = 1338;
+pub const LONGYIELD_TOTAL_SUPPLY: u128 = 1_000_000_000_000_000_000; // 1 billion with 18 decimals
+pub const LONGYIELD_DECIMALS: u8 = 18;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Account {
-    pub pubkey_hash: PublicKeyHash,
-    pub nonce: u64,
     pub balance: u128,
+    pub nonce: u64,
+    pub layer0_balance: u128, // Layer0 token balance
+    pub longyield_balance: u128, // LongYield L1 token balance
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Tx {
-    pub from: PublicKeyHash,
-    pub to: PublicKeyHash,
+    pub from: H256,
+    pub to: H256,
     pub amount: u128,
-    pub fee: u128,
-    pub signature: StarkSignature,
+    pub fee: u128, // Only used for non-Layer0 tokens
+    pub signature: dxid_crypto::StarkSignature,
+    pub token_type: TokenType, // Which token to transfer
+    pub cross_chain: bool, // Is this a cross-chain transaction?
+    pub target_chain_id: Option<u32>, // Target chain for cross-chain txs
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug, Default)]
-pub struct State {
-    pub accounts: HashMap<String, Account>, // key = hex(pubkey_hash)
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub enum TokenType {
+    Layer0, // Store of value token (Bitcoin-like)
+    LongYield, // L1 token
+    Native, // Legacy native token
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct BlockHeader {
     pub height: u64,
-    pub last_block_hash: [u8; 32],
-    pub state_root: [u8; 32],
+    pub timestamp: u64,
+    pub tx_root: H256,
+    pub state_root: H256,
+    pub layer0_reward: u128, // Layer0 block reward
+    pub longyield_reward: u128, // LongYield block reward
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -41,271 +70,334 @@ pub struct Block {
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct BlockHeader {
+pub struct State {
+    pub accounts: HashMap<String, Account>, // key: hex(addr)
     pub height: u64,
-    pub prev_hash: [u8; 32],
-    pub tx_root: [u8; 32],
-    /// Previous and new state roots (post-apply, SMT)
-    pub prev_state_root: [u8; 32],
-    pub state_root: [u8; 32],
-    /// Transition commitment placeholder (swap for STARK of state transition)
-    pub transition_commitment: [u8; 32],
-    /// Block timestamp (unix seconds)
-    pub timestamp: u64,
-    /// Chain id to domain-separate signables
-    pub chain_id: u32,
-    pub id: Uuid,
-}
-
-fn h(bytes: &[u8]) -> [u8; 32] {
-    *blake3::hash(bytes).as_bytes()
-}
-fn hexify(bytes: &[u8]) -> String {
-    hex::encode(bytes)
+    pub last_block_hash: H256,
+    pub state_root: H256,
+    pub layer0_circulating: u128, // Total Layer0 tokens in circulation
+    pub longyield_circulating: u128, // Total LongYield tokens in circulation
+    #[serde(skip)]
+    smt: SparseMerkleTree,
 }
 
 impl State {
-    pub fn new_with_genesis(funded: Vec<(PublicKeyHash, u128)>) -> Self {
-        let mut accounts = HashMap::new();
-        for (pk, bal) in funded {
-            accounts.insert(
-                hexify(&pk),
-                Account {
-                    pubkey_hash: pk,
-                    nonce: 0,
-                    balance: bal,
-                },
-            );
+    pub fn new_with_genesis(genesis_alloc: Vec<(H256, u128)>) -> Arc<Mutex<Self>> {
+        let mut smt = SparseMerkleTree::new();
+        let mut accounts: HashMap<String, Account> = HashMap::new();
+        
+        // Initialize Layer0 faucet with 1 trillion tokens for testing
+        let layer0_faucet_balance = 1_000_000_000_000_000_000u128; // 1 trillion with 8 decimals
+        
+        for (addr, bal) in genesis_alloc {
+            accounts.insert(hex::encode(addr), Account { 
+                balance: bal, 
+                nonce: 0,
+                layer0_balance: if bal > 0 { layer0_faucet_balance } else { 0 },
+                longyield_balance: 0,
+            });
+            smt.update(addr, Some(u128_to_h256(bal)));
         }
-        let state_root = smt::state_root_from_accounts(&accounts);
-        State {
+        
+        let state_root = smt.root();
+        Arc::new(Mutex::new(Self {
             accounts,
             height: 0,
             last_block_hash: [0u8; 32],
             state_root,
-        }
+            layer0_circulating: layer0_faucet_balance,
+            longyield_circulating: 0,
+            smt,
+        }))
     }
 
-    pub fn apply_block(&mut self, b: &Block) -> Result<()> {
-        // Verify linkage
-        if b.header.prev_hash != self.last_block_hash {
-            return Err(anyhow!("prev_hash mismatch at height {}", b.header.height));
+    /// Calculate Layer0 block reward
+    pub fn calculate_layer0_reward(&self) -> u128 {
+        let halvings = self.height / LAYER0_HALVING_BLOCKS;
+        let base_reward = LAYER0_BLOCK_REWARD >> halvings; // Bit shift for halving
+        
+        // Early block bonuses
+        let early_miner_bonus = if self.height < 1000 { 
+            LAYER0_BLOCK_REWARD / 2 // 50% bonus for first 1000 blocks
+        } else if self.height < 10000 {
+            LAYER0_BLOCK_REWARD / 4 // 25% bonus for first 10,000 blocks
+        } else {
+            0
+        };
+        
+        // Difficulty bonuses
+        let difficulty_bonus = if self.height > 1000 {
+            ((self.height / 1000) as u128) * 10_000_000_000u128 // Bonus increases with height
+        } else {
+            0u128
+        };
+        
+        base_reward + early_miner_bonus + difficulty_bonus
+    }
+
+    /// Calculate LongYield block reward (fixed for now)
+    pub fn calculate_longyield_reward(&self) -> u128 {
+        1_000_000_000_000_000_000u128 // 1 L1 token per block
+    }
+
+    /// Produce a real SMT inclusion proof for an address.
+    pub fn prove_account(&self, addr_hex: &str) -> (Option<Account>, SmtProof) {
+        let addr = dehex32(addr_hex);
+        let (leaf, proof) = if let Some(a) = addr {
+            let (_val, p) = self.smt.prove(&a);
+            let acct = self.accounts.get(&addr_hex.to_lowercase()).cloned();
+            (acct, p)
+        } else {
+            (None, SmtProof::empty())
+        };
+        (leaf, proof)
+    }
+
+    /// Update in-memory SMT after a balance/nonce change.
+    pub fn set_account(&mut self, addr: H256, acct: &Account) {
+        self.accounts.insert(hex::encode(addr), acct.clone());
+        self.smt.update(addr, Some(u128_to_h256(acct.balance)));
+        self.state_root = self.smt.root();
+    }
+
+    /// Reconstruct SMT from accounts (used when loading from storage)
+    pub fn reconstruct_smt(&mut self) {
+        self.smt = SparseMerkleTree::new();
+        for (addr_hex, account) in &self.accounts {
+            if let Some(addr) = dehex32(addr_hex) {
+                self.smt.update(addr, Some(u128_to_h256(account.balance)));
+            }
         }
-        if b.header.prev_state_root != self.state_root {
-            return Err(anyhow!(
-                "prev_state_root mismatch at height {}",
-                b.header.height
-            ));
-        }
-        // Verify tx_root matches
-        let want_root = merkleize_txs(&b.txs);
-        if want_root != b.header.tx_root {
-            return Err(anyhow!("tx_root mismatch"));
-        }
-        // Apply txs
-        for tx in &b.txs {
-            apply_tx(self, tx)?;
-        }
-        // Compute new SMT root and check header
-        let new_root = smt::state_root_from_accounts(&self.accounts);
-        if new_root != b.header.state_root {
-            return Err(anyhow!("state_root mismatch after apply"));
-        }
-        // Update height & last hash
-        self.height = b.header.height;
-        self.last_block_hash = block_hash(&b.header);
-        self.state_root = new_root;
-        Ok(())
+        self.state_root = self.smt.root();
     }
 }
 
-fn apply_tx(st: &mut State, tx: &Tx) -> Result<()> {
-    // Signable message (deterministic JSON tuple) with nonce & chain bound
-    let msg = serde_json::to_vec(&(
-        tx.from,
-        tx.to,
-        tx.amount,
-        tx.fee,
-        tx.signature.nonce,
-        CHAIN_ID,
-    ))?;
-    // Signature must match "from"
-    if tx.signature.pubkey_hash != tx.from {
-        return Err(anyhow!("signature pubkey mismatch"));
-    }
-    // Verify STARK-backed signature
-    STARK.verify(&tx.signature, &msg)?;
-
-    // Nonce & balances
-    let from_key = hexify(&tx.from);
-    let to_key = hexify(&tx.to);
-
-    let from = st
-        .accounts
-        .get_mut(&from_key)
-        .ok_or_else(|| anyhow!("sender not found"))?;
-
-    if from.nonce != tx.signature.nonce {
-        return Err(anyhow!(
-            "nonce mismatch: expected {}, got {}",
-            from.nonce,
-            tx.signature.nonce
-        ));
-    }
-
-    let total = tx
-        .amount
-        .checked_add(tx.fee)
-        .ok_or_else(|| anyhow!("overflow"))?;
-    if from.balance < total {
-        return Err(anyhow!("insufficient balance"));
-    }
-
-    from.balance -= total;
-    from.nonce += 1;
-
-    let to = st.accounts.entry(to_key).or_insert(Account {
-        pubkey_hash: tx.to,
-        nonce: 0,
-        balance: 0,
-    });
-    to.balance = to
-        .balance
-        .checked_add(tx.amount)
-        .ok_or_else(|| anyhow!("overflow"))?;
-
-    Ok(())
-}
-
-fn block_hash(hdr: &BlockHeader) -> [u8; 32] {
-    // Hash all header fields deterministically
-    let mut v = Vec::new();
-    v.extend_from_slice(&hdr.prev_hash);
-    v.extend_from_slice(&hdr.tx_root);
-    v.extend_from_slice(&hdr.prev_state_root);
-    v.extend_from_slice(&hdr.state_root);
-    v.extend_from_slice(&hdr.transition_commitment);
-    v.extend_from_slice(&hdr.height.to_le_bytes());
-    v.extend_from_slice(&hdr.timestamp.to_le_bytes());
-    v.extend_from_slice(&hdr.chain_id.to_le_bytes());
-    v.extend_from_slice(hdr.id.as_bytes());
-    h(&v)
-}
-
-fn merkleize_txs(txs: &[Tx]) -> [u8; 32] {
-    // Flat merkle-ish: hash(concat(hash(tx_i)))
-    let mut acc = Vec::with_capacity(32 * txs.len());
-    for t in txs {
-        acc.extend_from_slice(&h(&serde_json::to_vec(t).unwrap()));
-    }
-    h(&acc)
-}
-
-/// Simple in-process “chain” that produces a block every N ms from tx JSON files in `mempool_dir`.
+#[derive(Clone)]
 pub struct Chain {
     pub state: Arc<Mutex<State>>,
     pub mempool_dir: PathBuf,
     pub blocks_dir: PathBuf,
-    pub period_ms: u64,
+    block_time_ms: u64,
+    storage: Arc<Storage>,
 }
 
 impl Chain {
-    pub fn new(state: State, base: PathBuf, period_ms: u64) -> Result<Self> {
-        let mempool_dir = base.join("mempool");
-        let blocks_dir = base.join("blocks");
-        fs::create_dir_all(&mempool_dir)?;
-        fs::create_dir_all(&blocks_dir)?;
-        Ok(Self {
-            state: Arc::new(Mutex::new(state)),
-            mempool_dir,
-            blocks_dir,
-            period_ms,
-        })
+    pub fn new(state: Arc<Mutex<State>>, base: PathBuf, block_time_ms: u64) -> Result<Self> {
+        let mempool = base.join("mempool");
+        let blocks = base.join("blocks");
+        fs::create_dir_all(&mempool)?;
+        fs::create_dir_all(&blocks)?;
+        
+        // Initialize storage
+        let storage_config = StorageConfig {
+            base_dir: base.clone(),
+            ..Default::default()
+        };
+        let storage = Arc::new(Storage::new(storage_config)?);
+        
+        // Try to load existing state from storage
+        if let Some(saved_state) = storage.load_state()? {
+            let mut state_guard = state.lock();
+            *state_guard = saved_state;
+            state_guard.reconstruct_smt();
+            println!("Loaded existing state from height {}", state_guard.height);
+        } else {
+            println!("Starting with fresh genesis state");
+        }
+        
+        Ok(Self { state, mempool_dir: mempool, blocks_dir: blocks, block_time_ms, storage })
     }
 
-    /// Collect tx files, make a block, apply it, write it to disk.
-    pub fn make_block_once(&self) -> Result<Option<Block>> {
-        let entries = fs::read_dir(&self.mempool_dir)?;
-        let mut txs = Vec::new();
-        let mut consumed = Vec::new();
-
-        for e in entries {
-            let e = e?;
-            if !e.file_type()?.is_file() {
-                continue;
+    pub fn make_block_once(self: &Arc<Self>) -> Result<Option<Block>> {
+        // Pre-allocate vectors to reduce allocations
+        let mut txs = Vec::with_capacity(100); // Reasonable capacity for mempool
+        
+        // Read mempool files with better error handling
+        if let Ok(entries) = fs::read_dir(&self.mempool_dir) {
+            for entry in entries {
+                if let Ok(entry) = entry {
+                    let p = entry.path();
+                    if p.extension().and_then(|s| s.to_str()) == Some("json") {
+                        if let Ok(txt) = fs::read_to_string(&p) {
+                            if let Ok(tx) = serde_json::from_str::<Tx>(&txt) {
+                                txs.push((p, tx));
+                            }
+                        }
+                    }
+                }
             }
-            let p = e.path();
-            if p.extension().and_then(|s| s.to_str()) != Some("json") {
-                continue;
-            }
-            let txt = fs::read_to_string(&p)?;
-            let tx: Tx = serde_json::from_str(&txt)?;
-            // Pre-validate signature before including
-            let msg = serde_json::to_vec(&(tx.from, tx.to, tx.amount, tx.fee, tx.signature.nonce, CHAIN_ID))?;
-            STARK.verify(&tx.signature, &msg)?;
-            txs.push(tx);
-            consumed.push(p);
         }
 
-        if txs.is_empty() {
-            return Ok(None);
-        }
-
-        // Build header (need next state root). Clone state & simulate apply.
+        // Apply transactions with better error handling
         let mut st = self.state.lock();
-        let height = st.height + 1;
-        let tx_root = merkleize_txs(&txs);
-        let prev_state_root = st.state_root;
-
-        // Simulate to compute new state root via SMT
-        let mut preview = st.clone();
-        for tx in &txs {
-            apply_tx(&mut preview, tx)?;
+        let mut applied = Vec::with_capacity(txs.len());
+        let mut failed_txs = Vec::new();
+        
+        for (path, tx) in txs {
+            match Self::apply_tx(&mut st, &tx) {
+                Ok(_) => {
+                    // Remove file only after successful application
+                    let _ = fs::remove_file(&path);
+                    applied.push(tx);
+                }
+                Err(_) => {
+                    failed_txs.push(path);
+                }
+            }
         }
-        let next_state_root = smt::state_root_from_accounts(&preview.accounts);
 
-        // Transition commitment placeholder
-        let mut pre = Vec::new();
-        pre.extend_from_slice(&st.last_block_hash);
-        pre.extend_from_slice(&tx_root);
-        pre.extend_from_slice(&height.to_le_bytes());
-        let transition_commitment = h(&pre);
-
+        // Always produce a block (even empty) for Layer0 store of value
+        st.height += 1;
         let header = BlockHeader {
-            height,
-            prev_hash: st.last_block_hash,
-            tx_root,
-            prev_state_root,
-            state_root: next_state_root,
-            transition_commitment,
+            height: st.height,
             timestamp: now_ts(),
-            chain_id: CHAIN_ID,
-            id: Uuid::new_v4(),
+            tx_root: h_txs(&applied),
+            state_root: st.state_root,
+            layer0_reward: st.calculate_layer0_reward(),
+            longyield_reward: st.calculate_longyield_reward(),
         };
-        let block = Block {
-            header: header.clone(),
-            txs,
-        };
+        let block = Block { header: header.clone(), txs: applied };
+        
+        // Update the last_block_hash in state
+        st.last_block_hash = h_block_header(&header);
+        
+        // Persist block with better error handling
+        let fname = format!("{:016x}.json", header.height);
+        if let Err(e) = fs::write(self.blocks_dir.join(&fname), serde_json::to_string_pretty(&block)?) {
+            eprintln!("Failed to persist block {}: {}", header.height, e);
+        }
+        
+        // Save state to persistent storage
+        if let Err(e) = self.storage.save_state(&st) {
+            eprintln!("Failed to save state: {}", e);
+        }
+        
+        // Create checkpoint periodically
+        if let Err(e) = self.storage.create_checkpoint(&st, &block) {
+            eprintln!("Failed to create checkpoint: {}", e);
+        }
+        
+        // Index transactions for efficient querying
+        for (tx_index, tx) in block.txs.iter().enumerate() {
+            let tx_hash = h_txs(&[tx.clone()]);
+            if let Err(e) = self.storage.index_transaction(tx_hash, block.header.height, tx_index) {
+                eprintln!("Failed to index transaction: {}", e);
+            }
+        }
+        
+        // Create backup periodically
+        if let Err(e) = self.storage.create_backup() {
+            eprintln!("Failed to create backup: {}", e);
+        }
+        
+        Ok(Some(block))
+    }
 
-        // Apply and persist
-        st.apply_block(&block)?;
-        let fname = format!("{:016x}.json", height);
-        let path = self.blocks_dir.join(fname);
-        fs::write(&path, serde_json::to_string_pretty(&block)?)?;
+    /// Get storage statistics
+    pub fn get_storage_stats(&self) -> Result<storage::StorageStats> {
+        self.storage.get_stats()
+    }
 
-        // Remove consumed txs
-        for p in consumed {
-            let _ = fs::remove_file(p);
+    fn apply_tx(st: &mut State, tx: &Tx) -> Result<()> {
+        // basic sig/domain separation
+        let msg = serde_json::to_vec(&(tx.from, tx.to, tx.amount, tx.fee, tx.signature.nonce, CHAIN_ID))?;
+        STARK.verify(&tx.signature, &msg)?;
+
+        let from_hex = hex::encode(tx.from);
+        let to_hex = hex::encode(tx.to);
+
+        // snapshot current accounts (avoid holding entry borrows while updating SMT)
+        let mut from_acct = st.accounts.get(&from_hex).cloned().unwrap_or(Account { balance: 0, nonce: 0, layer0_balance: 0, longyield_balance: 0 });
+        let mut to_acct   = st.accounts.get(&to_hex).cloned().unwrap_or(Account { balance: 0, nonce: 0, layer0_balance: 0, longyield_balance: 0 });
+
+        // economic rules
+        if from_acct.nonce != tx.signature.nonce { anyhow::bail!("bad nonce"); }
+        let spend = tx.amount.saturating_add(tx.fee);
+
+        // Handle different token types
+        match tx.token_type {
+            TokenType::Layer0 => {
+                // LAYER0: ULTIMATE STORE OF VALUE - ZERO FEES, PURE APPRECIATION
+                if from_acct.layer0_balance < tx.amount { anyhow::bail!("insufficient layer0 balance"); }
+                
+                // ZERO FEES - Pure transfer, no cost
+                from_acct.layer0_balance -= tx.amount;
+                to_acct.layer0_balance = to_acct.layer0_balance.saturating_add(tx.amount);
+                
+                // AUTOMATIC APPRECIATION: Every Layer0 holder gets appreciation
+                let appreciation = tx.amount * LAYER0_APPRECIATION_RATE as u128 / 1_000_000; // 0.1% appreciation
+                to_acct.layer0_balance = to_acct.layer0_balance.saturating_add(appreciation);
+                
+
+                
+                // NO FEES BURNED - Layer0 is pure store of value
+            },
+            TokenType::LongYield => {
+                // LongYield L1 token transfer (still has fees for utility)
+                if from_acct.longyield_balance < spend { anyhow::bail!("insufficient longyield balance"); }
+                
+                from_acct.longyield_balance -= spend;
+                to_acct.longyield_balance = to_acct.longyield_balance.saturating_add(tx.amount);
+                
+                st.longyield_circulating = st.longyield_circulating.saturating_sub(tx.fee);
+            },
+            TokenType::Native => {
+                // Legacy native token transfer
+                if from_acct.balance < spend { anyhow::bail!("insufficient native balance"); }
+                
+                from_acct.balance -= spend;
+                to_acct.balance = to_acct.balance.saturating_add(tx.amount);
+            },
         }
 
-        Ok(Some(block))
+        // Update nonce
+        from_acct.nonce += 1;
+
+        // write back + update SMT without overlapping borrows
+        st.set_account(tx.from, &from_acct);
+        st.set_account(tx.to, &to_acct);
+
+        Ok(())
     }
 }
 
+/* ---- helpers ---- */
+
 fn now_ts() -> u64 {
     use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+}
+
+fn h_txs(txs: &[Tx]) -> H256 {
+    // very simple tx root: hash concatenation
+    use blake3::Hasher;
+    let mut hasher = Hasher::new();
+    for tx in txs {
+        let s = serde_json::to_vec(tx).unwrap();
+        hasher.update(&s);
+    }
+    *hasher.finalize().as_bytes()
+}
+
+fn h_block_header(header: &BlockHeader) -> H256 {
+    // Hash the block header
+    use blake3::Hasher;
+    let mut hasher = Hasher::new();
+    let s = serde_json::to_vec(header).unwrap();
+    hasher.update(&s);
+    *hasher.finalize().as_bytes()
+}
+
+fn dehex32(s: &str) -> Option<H256> {
+    let v = hex::decode(s).ok()?;
+    if v.len() != 32 { return None; }
+    let mut out = [0u8; 32];
+    out.copy_from_slice(&v);
+    Some(out)
+}
+
+fn u128_to_h256(x: u128) -> H256 {
+    let mut out = [0u8; 32];
+    out[16..].copy_from_slice(&x.to_be_bytes());
+    out
 }

@@ -1,5 +1,5 @@
 [package]
-name = "dxid-runtime"
+name = "dxid-smt"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,10 +7,5 @@ edition = "2021"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-hex = "0.4"
-parking_lot = "0.12"
 blake3 = "1"
-tracing = "0.1"
-
-dxid-crypto = { path = "../dxid-crypto" }
-dxid-smt   = { path = "../dxid-smt" }
+hex = "0.4"

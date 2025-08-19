@@ -1,0 +1,35 @@
+[package]
+name = "dxid-zk-snark"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+bincode = "2.0"
+hex = "0.4"
+rand = "0.8"
+blake3 = "1"
+
+# Real ZK-SNARK dependencies
+bellman = "0.12"
+pairing = "0.24"
+ff = "0.13"
+group = "0.13"
+
+# For circuit construction
+gadgets = "0.1"
+
+# For lazy initialization
+once_cell = "1.19"
+
+# Additional crypto dependencies
+sha2 = "0.10"
+aes = "0.8"
+aes-gcm = "0.10"
+chacha20poly1305 = "0.10"
+
+[features]
+default = ["bellman"]
+bellman = []
