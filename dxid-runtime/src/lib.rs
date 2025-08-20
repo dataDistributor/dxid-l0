@@ -156,7 +156,16 @@ impl State {
     /// Update in-memory SMT after a balance/nonce change.
     pub fn set_account(&mut self, addr: H256, acct: &Account) {
         self.accounts.insert(hex::encode(addr), acct.clone());
-        self.smt.update(addr, Some(u128_to_h256(acct.balance)));
+        
+        // Create a comprehensive account hash that includes all account data
+        let mut account_data = Vec::new();
+        account_data.extend_from_slice(&acct.balance.to_le_bytes());
+        account_data.extend_from_slice(&acct.nonce.to_le_bytes());
+        account_data.extend_from_slice(&acct.layer0_balance.to_le_bytes());
+        account_data.extend_from_slice(&acct.longyield_balance.to_le_bytes());
+        
+        let account_hash = blake3::hash(&account_data);
+        self.smt.update(addr, Some(*account_hash.as_bytes()));
         self.state_root = self.smt.root();
     }
 
@@ -248,6 +257,11 @@ impl Chain {
 
         // Always produce a block (even empty) for Layer0 store of value
         st.height += 1;
+        
+        // Recalculate state root after all transactions are applied
+        // This ensures the state root reflects the current state even for empty blocks
+        st.state_root = st.smt.root();
+        
         let header = BlockHeader {
             height: st.height,
             timestamp: now_ts(),
@@ -261,9 +275,8 @@ impl Chain {
         // Update the last_block_hash in state
         st.last_block_hash = h_block_header(&header);
         
-        // Persist block with better error handling
-        let fname = format!("{:016x}.json", header.height);
-        if let Err(e) = fs::write(self.blocks_dir.join(&fname), serde_json::to_string_pretty(&block)?) {
+        // Persist block with enhanced storage
+        if let Err(e) = self.storage.save_block(&block) {
             eprintln!("Failed to persist block {}: {}", header.height, e);
         }
         

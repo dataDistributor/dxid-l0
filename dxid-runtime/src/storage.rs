@@ -10,6 +10,15 @@ use std::{
 
 use crate::{Block, BlockHeader, State, H256};
 
+/// Backup manifest for tracking backup metadata
+#[derive(Debug, Serialize, Deserialize)]
+struct BackupManifest {
+    timestamp: u64,
+    backup_name: String,
+    files_backed_up: usize,
+    blockchain_height: u64,
+}
+
 /// Storage configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
@@ -31,11 +40,11 @@ impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             base_dir: PathBuf::from("./dxid-data"),
-            checkpoint_interval: 1000, // Every 1000 blocks
-            max_checkpoints: 10,
+            checkpoint_interval: 100, // More frequent checkpoints for better persistence
+            max_checkpoints: 50, // Keep more checkpoints
             enable_indexing: true,
             enable_compression: true,
-            backup_interval_secs: 3600, // Every hour
+            backup_interval_secs: 1800, // Every 30 minutes for better persistence
         }
     }
 }
@@ -75,9 +84,10 @@ impl Storage {
         })
     }
 
-    /// Save the current state to disk
+    /// Save the current state to disk with multiple backup copies
     pub fn save_state(&self, state: &State) -> Result<()> {
         let temp_file = self.state_file.with_extension("tmp");
+        let backup_file = self.state_file.with_extension("backup");
         
         // Write to temporary file first
         let file = OpenOptions::new()
@@ -93,29 +103,120 @@ impl Storage {
         writer.flush().context("Failed to flush state file")?;
         drop(writer);
 
+        // Create backup of current state if it exists
+        if self.state_file.exists() {
+            fs::copy(&self.state_file, &backup_file)
+                .context("Failed to create state backup")?;
+        }
+
         // Atomic rename
         fs::rename(&temp_file, &self.state_file)
             .context("Failed to atomically rename state file")?;
 
-        println!("State saved successfully at height {}", state.height);
+        // Also save to a height-specific file for extra safety
+        let height_file = self.config.base_dir.join(format!("state_height_{}.json", state.height));
+        fs::copy(&self.state_file, &height_file)
+            .context("Failed to create height-specific state backup")?;
+
+        println!("State saved successfully at height {} (with backups)", state.height);
         Ok(())
     }
 
-    /// Load state from disk
+    /// Load state from disk with fallback to backups
     pub fn load_state(&self) -> Result<Option<State>> {
-        if !self.state_file.exists() {
-            return Ok(None);
+        // Try loading from main state file first
+        if self.state_file.exists() {
+            match self.try_load_state_file(&self.state_file) {
+                Ok(state) => {
+                    println!("State loaded successfully from main file at height {}", state.height);
+                    return Ok(Some(state));
+                }
+                Err(e) => {
+                    println!("Failed to load main state file: {}, trying backups...", e);
+                }
+            }
         }
 
-        let file = File::open(&self.state_file)
+        // Try loading from backup file
+        let backup_file = self.state_file.with_extension("backup");
+        if backup_file.exists() {
+            match self.try_load_state_file(&backup_file) {
+                Ok(state) => {
+                    println!("State loaded successfully from backup file at height {}", state.height);
+                    return Ok(Some(state));
+                }
+                Err(e) => {
+                    println!("Failed to load backup state file: {}, trying checkpoints...", e);
+                }
+            }
+        }
+
+        // Try loading from latest checkpoint
+        if let Ok(Some(state)) = self.load_from_checkpoint() {
+            println!("State loaded successfully from checkpoint at height {}", state.height);
+            return Ok(Some(state));
+        }
+
+        // Try loading from height-specific files (find the latest)
+        if let Ok(Some(state)) = self.load_from_latest_height_file() {
+            println!("State loaded successfully from height file at height {}", state.height);
+            return Ok(Some(state));
+        }
+
+        println!("No valid state found, starting fresh");
+        Ok(None)
+    }
+
+    /// Try to load state from a specific file
+    fn try_load_state_file(&self, path: &Path) -> Result<State> {
+        let file = File::open(path)
             .context("Failed to open state file")?;
         
         let reader = BufReader::new(file);
         let state: State = serde_json::from_reader(reader)
             .context("Failed to deserialize state")?;
 
-        println!("State loaded successfully from height {}", state.height);
-        Ok(Some(state))
+        Ok(state)
+    }
+
+    /// Load state from the latest height-specific file
+    fn load_from_latest_height_file(&self) -> Result<Option<State>> {
+        let mut height_files = Vec::new();
+        
+        for entry in fs::read_dir(&self.config.base_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if let Some(name) = path.file_name() {
+                if let Some(name_str) = name.to_str() {
+                    if name_str.starts_with("state_height_") && name_str.ends_with(".json") {
+                        height_files.push(path);
+                    }
+                }
+            }
+        }
+
+        if height_files.is_empty() {
+            return Ok(None);
+        }
+
+        // Sort by height (extract height from filename)
+        height_files.sort_by(|a, b| {
+            let a_name = a.file_name().unwrap().to_str().unwrap();
+            let b_name = b.file_name().unwrap().to_str().unwrap();
+            let a_height = a_name.trim_start_matches("state_height_").trim_end_matches(".json");
+            let b_height = b_name.trim_start_matches("state_height_").trim_end_matches(".json");
+            a_height.parse::<u64>().unwrap_or(0).cmp(&b_height.parse::<u64>().unwrap_or(0))
+        });
+
+        // Load the latest height file
+        let latest_file = height_files.last().unwrap();
+        match self.try_load_state_file(latest_file) {
+            Ok(state) => Ok(Some(state)),
+            Err(e) => {
+                println!("Failed to load height file {:?}: {}", latest_file, e);
+                Ok(None)
+            }
+        }
     }
 
     /// Create a checkpoint of the current state
@@ -282,7 +383,7 @@ impl Storage {
         Ok(None)
     }
 
-    /// Create a backup of all data
+    /// Create a backup of all data with enhanced persistence
     pub fn create_backup(&self) -> Result<()> {
         let current_time = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -300,9 +401,10 @@ impl Storage {
         // Create backup directory
         fs::create_dir_all(&backup_path)?;
 
-        // Copy all important files
+        // Copy all important files with enhanced error handling
         let files_to_backup = [
             "state.json",
+            "state.json.backup",
             "blocks",
             "checkpoints",
             "index",
@@ -321,13 +423,95 @@ impl Storage {
             }
         }
 
+        // Also backup height-specific state files
+        for entry in fs::read_dir(&self.config.base_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if let Some(name) = path.file_name() {
+                if let Some(name_str) = name.to_str() {
+                    if name_str.starts_with("state_height_") && name_str.ends_with(".json") {
+                        let dest = backup_path.join(name_str);
+                        fs::copy(&path, &dest)?;
+                    }
+                }
+            }
+        }
+
+        // Create a manifest file for this backup
+        let manifest = BackupManifest {
+            timestamp: current_time,
+            backup_name: backup_name.clone(),
+            files_backed_up: files_to_backup.len(),
+            blockchain_height: self.get_current_height_from_state()?,
+        };
+
+        let manifest_file = backup_path.join("manifest.json");
+        let manifest_content = serde_json::to_string_pretty(&manifest)?;
+        fs::write(manifest_file, manifest_content)?;
+
         // Update last backup time
         *self.last_backup.write() = current_time;
 
         // Clean up old backups
         self.cleanup_old_backups()?;
 
-        println!("Backup created: {}", backup_name);
+        println!("Enhanced backup created: {} (height: {})", backup_name, manifest.blockchain_height);
+        Ok(())
+    }
+
+    /// Get current height from state file
+    fn get_current_height_from_state(&self) -> Result<u64> {
+        if let Ok(Some(state)) = self.load_state() {
+            Ok(state.height)
+        } else {
+            Ok(0)
+        }
+    }
+
+    /// Save a block with enhanced persistence
+    pub fn save_block(&self, block: &Block) -> Result<()> {
+        let fname = format!("{:016x}.json", block.header.height);
+        let block_file = self.config.base_dir.join("blocks").join(&fname);
+        let temp_file = block_file.with_extension("tmp");
+        let backup_file = block_file.with_extension("backup");
+
+        // Create blocks directory if it doesn't exist
+        fs::create_dir_all(self.config.base_dir.join("blocks"))?;
+
+        // Write to temporary file first
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&temp_file)
+            .context("Failed to create temporary block file")?;
+        
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(&mut writer, block)
+            .context("Failed to serialize block")?;
+        writer.flush().context("Failed to flush block file")?;
+        drop(writer);
+
+        // Create backup of existing block if it exists
+        if block_file.exists() {
+            fs::copy(&block_file, &backup_file)
+                .context("Failed to create block backup")?;
+        }
+
+        // Atomic rename
+        fs::rename(&temp_file, &block_file)
+            .context("Failed to atomically rename block file")?;
+
+        // Also save to a compressed backup
+        let compressed_file = self.config.base_dir.join("blocks").join(format!("{:016x}.json.gz", block.header.height));
+        if self.config.enable_compression {
+            // Note: In a real implementation, you'd use a compression library like flate2
+            // For now, we'll just copy the file
+            fs::copy(&block_file, &compressed_file)
+                .context("Failed to create compressed block backup")?;
+        }
+
+        println!("Block {} saved with enhanced persistence", block.header.height);
         Ok(())
     }
 
@@ -430,8 +614,29 @@ impl Storage {
             stats.backup_count = fs::read_dir(&self.backup_dir)?.count();
         }
 
+        // Count transactions in index
+        let index_file = self.index_dir.join("transactions.jsonl");
+        if index_file.exists() {
+            let file = File::open(&index_file)?;
+            let reader = BufReader::new(file);
+            stats.total_transactions = reader.lines().count();
+        }
+
         // Calculate total size
         stats.total_size = self.calculate_directory_size(&self.config.base_dir)?;
+
+        // Set timing information
+        stats.last_backup_time = *self.last_backup.read();
+        stats.last_checkpoint_height = *self.last_checkpoint.read();
+
+        // Determine storage health
+        stats.storage_health = if stats.block_count > 0 && stats.checkpoint_count > 0 {
+            "Healthy".to_string()
+        } else if stats.block_count > 0 {
+            "Warning: No checkpoints".to_string()
+        } else {
+            "New: No data yet".to_string()
+        };
 
         Ok(stats)
     }
@@ -478,6 +683,10 @@ pub struct StorageStats {
     pub checkpoint_count: usize,
     pub backup_count: usize,
     pub total_size: u64,
+    pub total_transactions: usize,
+    pub last_backup_time: u64,
+    pub last_checkpoint_height: u64,
+    pub storage_health: String,
 }
 
 /// Copy directory recursively
