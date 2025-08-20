@@ -53,10 +53,12 @@ cargo run --bin dxid-cli-enhanced
 ### 3. Network Auto-Discovery
 
 The node automatically:
-- Connects to bootstrap peers
+- Connects to the live dxID Layer0 network on Railway
 - Discovers other nodes on the network
 - Enables cross-chain transactions
 - Provides ZK privacy services
+
+**🌐 Live Network**: Your CLI automatically connects to `dxid-l0.railway.app:7000` - the live dxID Layer0 network!
 
 ## 📁 Clean Project Structure
 
@@ -90,8 +92,9 @@ Edit `dxid-config.toml` to customize:
 **Current Status**: ✅ **LIVE & FUNCTIONAL**
 - **Auto-Discovery**: Enabled
 - **Encryption**: ZK-STARK enabled
-- **Bootstrap Peers**: Configured
+- **Bootstrap Peers**: Live Railway node (`dxid-l0.railway.app:7000`)
 - **Connection Type**: TCP-based production network
+- **Network**: Always-on dxID Layer0 network
 
 ## 💰 Genesis Faucet
 

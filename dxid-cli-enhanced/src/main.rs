@@ -51,8 +51,13 @@ const DEFAULT_NODE_PORT: u16 = 8545;
 const DEFAULT_P2P_PORT: u16 = 7000;
 const DEFAULT_DISCOVERY_ENABLED: bool = true;
 
+/// Default bootstrap peers - connect to the live dxID Layer0 network
+fn default_bootstrap_peers() -> Vec<String> {
+    vec!["dxid-l0.railway.app:7000".to_string()]
+}
+
 /// CLI configuration with optimized defaults
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 struct CliConfig {
     default_api_key: Option<String>,
     rpc: Option<String>,
@@ -62,10 +67,25 @@ struct CliConfig {
     node_port: u16,
     #[serde(default = "default_p2p_port")]
     p2p_port: u16,
-    #[serde(default)]
+    #[serde(default = "default_bootstrap_peers")]
     bootstrap_peers: Vec<String>,
     #[serde(default = "default_discovery_enabled")]
     discovery_enabled: bool,
+}
+
+impl Default for CliConfig {
+    fn default() -> Self {
+        Self {
+            default_api_key: None,
+            rpc: None,
+            wallets: HashMap::new(),
+            default_wallet: None,
+            node_port: DEFAULT_NODE_PORT,
+            p2p_port: DEFAULT_P2P_PORT,
+            bootstrap_peers: default_bootstrap_peers(),
+            discovery_enabled: DEFAULT_DISCOVERY_ENABLED,
+        }
+    }
 }
 
 /// Wallet information with enhanced security

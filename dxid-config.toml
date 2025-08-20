@@ -24,11 +24,9 @@ interstellar_timeout = 86400         # 24 hours for Proxima Centauri
 intergalactic_timeout = 31536000      # 1 year for Andromeda Galaxy
 universal_timeout = 13800000000      # Age of universe for edge cases
 
-# Real network bootstrap peers (replace with actual IPs when available)
+# Real network bootstrap peers - connect to the live dxID Layer0 network
 bootstrap_peers = [
-    # Your node will be discoverable via P2P broadcast
-    # Others can connect to your node when it's running
-    # No central bootstrap needed - pure P2P discovery
+    "dxid-l0.railway.app:7000"  # Live dxID Layer0 node on Railway
 ]
 
 # Relativistic compensation
