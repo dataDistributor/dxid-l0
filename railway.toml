@@ -2,6 +2,6 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "cargo run --bin dxid-node -- --p2p-listen 0.0.0.0:7000"
+startCommand = "./target/release/dxid-node --p2p-listen 0.0.0.0:7000"
 healthcheckPath = "/status"
 healthcheckTimeout = 300
