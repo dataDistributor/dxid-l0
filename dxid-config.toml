@@ -1,63 +1,12 @@
-# dxID Layer0 Node Configuration
-# This file allows you to easily configure your node for different networks
+default_api_key = "baihu"
+default_wallet = "byewho"
+node_port = 8545
+p2p_port = 7000
+bootstrap_peers = []
+discovery_enabled = true
 
-[network]
-# Enable P2P networking (set to false for solo mode)
-enable_p2p = true
-
-# P2P listening address
-listen_addr = "0.0.0.0:7000"
-
-# Bootstrap nodes for automatic peer discovery
-# These are the main network nodes that new nodes connect to
-bootstrap_peers = [
-    "node1.dxid.network:7000",
-    "node2.dxid.network:7000", 
-    "node3.dxid.network:7000",
-    "testnet.dxid.network:7000",
-]
-
-# Enable automatic peer discovery
-auto_discovery = true
-
-# How often to try discovering new peers (seconds)
-discovery_interval = 60
-
-# Maximum number of peers to connect to
-max_peers = 50
-
-# Heartbeat interval for peer connections (seconds)
-heartbeat_interval = 30
-
-# Enable encryption for P2P communication
-enable_encryption = true
-
-[rpc]
-# RPC server address
-listen_addr = "127.0.0.1:8545"
-
-# Enable CORS for web applications
-enable_cors = true
-
-[blockchain]
-# Chain ID for the network
-chain_id = 1
-
-# Block time in milliseconds
-block_time_ms = 2000
-
-# Genesis allocation (for development/testing)
-# Format: "address": balance
-[blockchain.genesis]
-# The genesis faucet gets 1 trillion tokens for testing
-# This will be printed when you start the node
-
-[development]
-# Enable development mode (more verbose logging)
-dev_mode = false
-
-# Enable faucet for testing
-enable_faucet = true
-
-# Genesis faucet balance
-faucet_balance = 1000000000000
+[wallets.byewho]
+name = "byewho"
+address = "0505ad198744f68c5ba474486df95b6da4230151b94b1256130d8827cfabc82d"
+secret = "be7f907d2f3f417d394fef362fd6f405cd7e0ab2563956a7b425352248aabd7d"
+created_at = 1755651573

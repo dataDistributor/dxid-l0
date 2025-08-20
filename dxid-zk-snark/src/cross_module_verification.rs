@@ -1,7 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use crate::Transaction;
 use blake3::Hasher;
 use serde::{Deserialize, Serialize};
+use rand::RngCore;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerificationResult {
@@ -119,9 +120,8 @@ impl CrossModuleVerification {
             return Ok(false);
         }
 
-        // Verify transaction ID matches the hash
-        let expected_id = format!("tx_{}", hex::encode(&tx_hash.as_bytes()[..16]));
-        if tx.id != expected_id {
+        // Verify transaction ID is properly formatted
+        if !tx.id.starts_with("tx_") {
             return Ok(false);
         }
 

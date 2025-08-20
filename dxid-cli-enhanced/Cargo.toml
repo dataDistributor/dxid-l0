@@ -13,6 +13,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 winapi = { version = "0.3", features = ["winuser", "shellapi", "commctrl", "shellapi"] }
+# tray-item = "0.10"  # Removed - no longer using system tray
+toml = "0.8"
 
 # Local dependencies
 dxid-crypto = { path = "../dxid-crypto" }

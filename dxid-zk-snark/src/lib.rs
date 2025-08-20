@@ -8,7 +8,6 @@
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 pub mod transaction_encryption;
 pub mod cross_module_verification;
@@ -126,6 +125,30 @@ pub struct Transaction {
     pub timestamp: u64,
 }
 
+impl Transaction {
+    pub fn new(from_module: String, to_module: String, data: Vec<u8>) -> Self {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        
+        // Generate transaction ID from data
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&data);
+        hasher.update(&timestamp.to_le_bytes());
+        let hash = hasher.finalize();
+        let id = format!("tx_{}", hex::encode(&hash.as_bytes()[..16]));
+        
+        Self {
+            id,
+            from_module,
+            to_module,
+            data,
+            timestamp,
+        }
+    }
+}
+
 /// Encrypted transaction with ZK-SNARK proof
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EncryptedTransaction {
@@ -192,3 +215,172 @@ pub static ZK_SNARK_ENGINE: once_cell::sync::Lazy<ZkSnarkEngine> =
 // pub use transaction_encryption::TransactionEncryption;
 // pub use cross_module_verification::CrossModuleVerification;
 // pub use circuit_system::SnarkCircuitSystem;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio;
+
+    #[tokio::test]
+    async fn test_transaction_encryption_decryption() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        let tx = Transaction::new(
+            "module_a".to_string(),
+            "module_b".to_string(),
+            b"Hello, ZK-SNARK transaction!".to_vec(),
+        );
+        
+        // Encrypt transaction
+        let encrypted_tx = engine.encrypt_transaction(&tx).await.unwrap();
+        
+        // Verify encryption actually encrypted the data
+        assert_ne!(encrypted_tx.encrypted_data, tx.data);
+        assert_eq!(encrypted_tx.tx_id, tx.id);
+        
+        // Decrypt transaction
+        let decrypted_tx = engine.decrypt_transaction(&encrypted_tx).await.unwrap();
+        
+        // Verify decryption worked
+        assert_eq!(decrypted_tx.data, tx.data);
+        assert_eq!(decrypted_tx.id, tx.id);
+    }
+
+    #[tokio::test]
+    async fn test_cross_module_verification() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        let tx = Transaction::new(
+            "valid_module".to_string(),
+            "another_valid_module".to_string(),
+            b"Valid transaction data".to_vec(),
+        );
+        
+        // Verify transaction
+        let is_valid = engine.verify_cross_module_transaction(&tx).await.unwrap();
+        assert!(is_valid);
+    }
+
+    #[tokio::test]
+    async fn test_transaction_validity_proof() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        let tx = Transaction::new(
+            "test_module".to_string(),
+            "target_module".to_string(),
+            b"Transaction data for validity testing".to_vec(),
+        );
+        
+        // Generate validity proof
+        let validity_proof = engine.prove_transaction_validity(&tx).await.unwrap();
+        
+        // Verify validity proof
+        let is_valid = engine.verify_transaction_validity(&validity_proof, &tx).await.unwrap();
+        assert!(is_valid);
+    }
+
+    #[tokio::test]
+    async fn test_batch_transaction_processing() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        let transactions = vec![
+            Transaction::new("module_1".to_string(), "module_2".to_string(), b"Data 1".to_vec()),
+            Transaction::new("module_2".to_string(), "module_3".to_string(), b"Data 2".to_vec()),
+            Transaction::new("module_3".to_string(), "module_1".to_string(), b"Data 3".to_vec()),
+        ];
+        
+        // Batch encrypt
+        let encrypted_txs = engine.batch_encrypt_transactions(&transactions).await.unwrap();
+        assert_eq!(encrypted_txs.len(), transactions.len());
+        
+        // Batch verify
+        let verification_results = engine.batch_verify_transactions(&transactions).await.unwrap();
+        assert_eq!(verification_results.len(), transactions.len());
+        assert!(verification_results.iter().all(|&valid| valid));
+    }
+
+    #[tokio::test]
+    async fn test_invalid_transaction_handling() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        
+        // Create transaction with empty data (should be invalid)
+        let invalid_tx = Transaction::new(
+            "module_a".to_string(),
+            "module_b".to_string(),
+            vec![], // Empty data
+        );
+        
+        // This should fail verification
+        let is_valid = engine.verify_cross_module_transaction(&invalid_tx).await.unwrap();
+        assert!(!is_valid);
+    }
+
+    #[tokio::test]
+    async fn test_proof_verification_failure() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        let tx = Transaction::new(
+            "module_a".to_string(),
+            "module_b".to_string(),
+            b"Test transaction".to_vec(),
+        );
+        
+        // Create encrypted transaction
+        let encrypted_tx = engine.encrypt_transaction(&tx).await.unwrap();
+        
+        // Try to decrypt with modified proof (should fail)
+        let mut modified_tx = encrypted_tx.clone();
+        modified_tx.proof.proof_data = vec![0x42; 100]; // Corrupted proof
+        
+        let result = engine.decrypt_transaction(&modified_tx).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_large_transaction_handling() {
+        let engine = ZkSnarkEngine::new().unwrap();
+        let large_data = vec![0x42; 1024 * 1024]; // 1MB of data
+        let tx = Transaction::new(
+            "large_module".to_string(),
+            "target_module".to_string(),
+            large_data.clone(),
+        );
+        
+        // Test with large transaction
+        let encrypted_tx = engine.encrypt_transaction(&tx).await.unwrap();
+        let decrypted_tx = engine.decrypt_transaction(&encrypted_tx).await.unwrap();
+        
+        assert_eq!(decrypted_tx.data, large_data);
+    }
+
+    #[test]
+    fn test_transaction_creation() {
+        let tx = Transaction::new(
+            "from_module".to_string(),
+            "to_module".to_string(),
+            b"Test data".to_vec(),
+        );
+        
+        assert_eq!(tx.from_module, "from_module");
+        assert_eq!(tx.to_module, "to_module");
+        assert_eq!(tx.data, b"Test data");
+        assert!(tx.timestamp > 0);
+        assert!(tx.id.starts_with("tx_"));
+    }
+
+    #[test]
+    fn test_transaction_encryption_creation() {
+        let encryption = TransactionEncryption::new().unwrap();
+        let test_data = b"Test transaction encryption";
+        let encrypted = encryption.encrypt(test_data).unwrap();
+        let decrypted = encryption.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, test_data);
+    }
+
+    #[test]
+    fn test_cross_module_verification_creation() {
+        let verification = CrossModuleVerification::new().unwrap();
+        let tx = Transaction::new(
+            "test_module".to_string(),
+            "target_module".to_string(),
+            b"Test verification".to_vec(),
+        );
+        let result = verification.verify_transaction(&tx).unwrap();
+        assert!(result);
+    }
+}

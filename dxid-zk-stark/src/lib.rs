@@ -8,12 +8,6 @@
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use winterfell::{
-    crypto::{hashers::Blake3_256, DefaultRandomCoin},
-    math::{fields::f64::BaseElement, FieldElement},
-    ProofOptions, Prover, StarkProof as WinterfellProof, Trace,
-};
 
 pub mod module_encryption;
 pub mod blockchain_encryption;

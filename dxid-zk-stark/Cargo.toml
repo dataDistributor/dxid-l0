@@ -25,6 +25,9 @@ group = "0.13"
 # For lazy initialization
 once_cell = "1.19"
 
+# For async testing
+tokio = { version = "1", features = ["full"] }
+
 # Additional crypto dependencies
 sha2 = "0.10"
 aes = "0.8"

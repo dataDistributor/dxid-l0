@@ -22,7 +22,7 @@ impl TransactionEncryption {
     pub fn encrypt(&self, data: &[u8]) -> Result<Vec<u8>> {
         // Derive encryption key from master key
         let key = self.derive_key("transaction_encryption")?;
-        let cipher = Aes256Gcm::new(&Key::from_slice(&key));
+        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
         
         // Generate random nonce
         let mut nonce_bytes = [0u8; 12];
@@ -53,7 +53,7 @@ impl TransactionEncryption {
         
         // Derive decryption key
         let key = self.derive_key("transaction_encryption")?;
-        let cipher = Aes256Gcm::new(&Key::from_slice(&key));
+        let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
         
         // Decrypt the data
         let plaintext = cipher
