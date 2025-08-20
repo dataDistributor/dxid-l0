@@ -174,7 +174,15 @@ impl State {
         self.smt = SparseMerkleTree::new();
         for (addr_hex, account) in &self.accounts {
             if let Some(addr) = dehex32(addr_hex) {
-                self.smt.update(addr, Some(u128_to_h256(account.balance)));
+                // Create comprehensive account hash that includes all account data
+                let mut account_data = Vec::new();
+                account_data.extend_from_slice(&account.balance.to_le_bytes());
+                account_data.extend_from_slice(&account.nonce.to_le_bytes());
+                account_data.extend_from_slice(&account.layer0_balance.to_le_bytes());
+                account_data.extend_from_slice(&account.longyield_balance.to_le_bytes());
+                
+                let account_hash = blake3::hash(&account_data);
+                self.smt.update(addr, Some(*account_hash.as_bytes()));
             }
         }
         self.state_root = self.smt.root();
@@ -261,6 +269,19 @@ impl Chain {
         // Recalculate state root after all transactions are applied
         // This ensures the state root reflects the current state even for empty blocks
         st.state_root = st.smt.root();
+        
+        // For empty blocks, ensure state root changes by including block metadata
+        if applied.is_empty() {
+            // Create a special "empty block" account that changes with each block
+            let empty_block_key = [0u8; 32]; // Special key for empty blocks
+            let mut empty_block_data = Vec::new();
+            empty_block_data.extend_from_slice(&st.height.to_le_bytes());
+            empty_block_data.extend_from_slice(&now_ts().to_le_bytes());
+            
+            let empty_block_hash = blake3::hash(&empty_block_data);
+            st.smt.update(empty_block_key, Some(*empty_block_hash.as_bytes()));
+            st.state_root = st.smt.root();
+        }
         
         let header = BlockHeader {
             height: st.height,
