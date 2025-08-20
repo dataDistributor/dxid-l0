@@ -4,7 +4,10 @@
 default_api_key = "baihu"
 default_wallet = "byewho"
 
-# Node port (default: 8545)
+# RPC endpoint for connecting to the dxID Layer0 node
+rpc = "https://dxid-l0.railway.app"
+
+# Node port (default: 8545) - only used for local node
 node_port = 8545
 
 # P2P port for interstellar communication (default: 7000)
