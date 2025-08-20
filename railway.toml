@@ -5,3 +5,9 @@ builder = "nixpacks"
 startCommand = "./target/release/dxid-node --p2p-listen 0.0.0.0:7000"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
+
+# Build optimization for Railway
+[build.environment]
+RUST_BACKTRACE = "1"
+CARGO_INCREMENTAL = "0"
+CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"
