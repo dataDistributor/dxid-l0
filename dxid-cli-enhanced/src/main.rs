@@ -331,9 +331,11 @@ fn h_ok(resp: Response) -> Result<Response> {
 /// Check if node is running with optimized timeout
 fn is_node_running() -> Result<bool> {
     let client = http();
+    let rpc_endpoint = resolve_rpc();
     
     // Try health endpoint first with longer timeout
-    let resp = client.get("http://localhost:8545/health")
+    let health_url = format!("{}/health", rpc_endpoint);
+    let resp = client.get(&health_url)
         .timeout(Duration::from_secs(15))
         .send();
     
@@ -347,7 +349,8 @@ fn is_node_running() -> Result<bool> {
     }
     
     // Fallback to status endpoint with longer timeout
-    let resp = client.get("http://localhost:8545/status")
+    let status_url = format!("{}/status", rpc_endpoint);
+    let resp = client.get(&status_url)
         .timeout(Duration::from_secs(15))
         .send();
     
@@ -508,7 +511,10 @@ fn stop_node() -> Result<()> {
 /// Get node status with proper error handling
 fn get_node_status() -> Result<StatusResp> {
     let client = http();
-    let resp = client.get("http://localhost:8545/status")
+    let rpc_endpoint = resolve_rpc();
+    let status_url = format!("{}/status", rpc_endpoint);
+    
+    let resp = client.get(&status_url)
         .timeout(Duration::from_secs(20))
         .send()?;
     
@@ -583,7 +589,9 @@ fn action_balance() -> Result<()> {
     
     if let Some(wallet) = cfg.wallets.get(&wallet_name) {
         let client = http();
-        let resp = client.get(&format!("http://localhost:8545/balance/{}", wallet.address))
+        let rpc_endpoint = resolve_rpc();
+        let balance_url = format!("{}/balance/{}", rpc_endpoint, wallet.address);
+        let resp = client.get(&balance_url)
             .timeout(Duration::from_secs(10))
             .send()?;
         
@@ -654,7 +662,9 @@ fn action_send() -> Result<()> {
         
         // Submit transaction
         let client = http();
-        let resp = client.post("http://localhost:8545/submitTx")
+        let rpc_endpoint = resolve_rpc();
+        let submit_url = format!("{}/submitTx", rpc_endpoint);
+        let resp = client.post(&submit_url)
             .json(&tx_req)
             .timeout(Duration::from_secs(30))
             .send()?;
@@ -840,7 +850,9 @@ fn action_list_api_keys() -> Result<()> {
     let token = read_admin_token().ok_or_else(|| anyhow!("Admin token not found"))?;
     
     let client = http();
-    let resp = client.get("http://localhost:8545/admin/apikeys")
+    let rpc_endpoint = resolve_rpc();
+    let apikeys_url = format!("{}/admin/apikeys", rpc_endpoint);
+    let resp = client.get(&apikeys_url)
         .header("X-Admin-Token", &token)
         .timeout(Duration::from_secs(10))
         .send()?;
@@ -871,7 +883,9 @@ fn action_create_api_key() -> Result<()> {
     print_info("Creating API key...");
     
     let client = http();
-    let resp = client.post("http://localhost:8545/admin/apikeys")
+    let rpc_endpoint = resolve_rpc();
+    let apikeys_url = format!("{}/admin/apikeys", rpc_endpoint);
+    let resp = client.post(&apikeys_url)
         .header("X-Admin-Token", &token)
         .json(&serde_json::json!({
             "name": name
@@ -906,7 +920,9 @@ fn action_delete_api_key() -> Result<()> {
     }
     
     let client = http();
-    let resp = client.delete(&format!("http://localhost:8545/admin/apikeys/{}", id))
+    let rpc_endpoint = resolve_rpc();
+    let delete_url = format!("{}/admin/apikeys/{}", rpc_endpoint, id);
+    let resp = client.delete(&delete_url)
         .header("X-Admin-Token", &token)
         .timeout(Duration::from_secs(10))
         .send()?;
@@ -967,7 +983,8 @@ fn action_start_node() -> Result<()> {
     match start_node_simple() {
         Ok(_) => {
             print_success("Node started successfully!");
-            print_info("Node is now running on http://localhost:8545");
+            let rpc_endpoint = resolve_rpc();
+            print_info(&format!("Node is now running on {}", rpc_endpoint));
             print_info("Use Node Management to control the node");
         }
         Err(e) => {
@@ -1029,7 +1046,9 @@ fn action_network_management() -> Result<()> {
         match choice.as_str() {
             "1" => {
                 let client = http();
-                match client.get("http://localhost:8545/network")
+                let rpc_endpoint = resolve_rpc();
+                let network_url = format!("{}/network", rpc_endpoint);
+                match client.get(&network_url)
                     .timeout(Duration::from_secs(5))
                     .send() {
                     Ok(resp) => {
