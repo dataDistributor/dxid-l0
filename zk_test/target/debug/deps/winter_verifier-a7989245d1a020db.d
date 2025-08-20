@@ -1,0 +1,11 @@
+C:\Users\kyle\Downloads\layer0\zk_test\target\debug\deps\winter_verifier-a7989245d1a020db.d: C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\lib.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\channel.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\evaluator.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\composer.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\errors.rs
+
+C:\Users\kyle\Downloads\layer0\zk_test\target\debug\deps\libwinter_verifier-a7989245d1a020db.rlib: C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\lib.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\channel.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\evaluator.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\composer.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\errors.rs
+
+C:\Users\kyle\Downloads\layer0\zk_test\target\debug\deps\libwinter_verifier-a7989245d1a020db.rmeta: C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\lib.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\channel.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\evaluator.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\composer.rs C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\errors.rs
+
+C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\lib.rs:
+C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\channel.rs:
+C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\evaluator.rs:
+C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\composer.rs:
+C:\Users\kyle\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\winter-verifier-0.8.3\src\errors.rs:

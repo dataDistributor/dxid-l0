@@ -1,0 +1,7 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "cargo run --bin dxid-node -- --p2p-listen 0.0.0.0:7000 --rpc-listen 0.0.0.0:8545"
+healthcheckPath = "/status"
+healthcheckTimeout = 300

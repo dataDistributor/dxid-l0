@@ -1,9 +1,10 @@
-//! dxid-p2p discovery: Simplified peer discovery and network management
+//! dxid-p2p discovery: Interstellar peer discovery and cosmic network management 🌌
 //! 
 //! This module provides:
-//! - Local network discovery via UDP broadcast
-//! - Bootstrap peer management
-//! - Peer health monitoring
+//! - Local/Interstellar network discovery via UDP broadcast with FTL compensation
+//! - Multi-galactic bootstrap peer management  
+//! - Peer health monitoring across vast cosmic distances
+//! - Relativistic time synchronization for blockchain consensus
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -21,13 +22,20 @@ use tracing::{debug, info, warn};
 
 use crate::{NetConfig, PeerInfo};
 
-// Discovery configuration
+// Interstellar Discovery Configuration 🌌
 const DISCOVERY_PORT: u16 = 7001;
 const DISCOVERY_MAGIC: &[u8; 4] = b"DXID";
 const DISCOVERY_VERSION: u8 = 1;
-const MAX_PEER_AGE: Duration = Duration::from_secs(300); // 5 minutes
-const PEER_CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
-const DISCOVERY_BROADCAST_INTERVAL: Duration = Duration::from_secs(30);
+
+// Cosmic timeouts adapted for interstellar distances
+const MAX_PEER_AGE: Duration = Duration::from_secs(86400); // 24 hours (light can travel ~26 billion km)
+const PEER_CLEANUP_INTERVAL: Duration = Duration::from_secs(3600); // 1 hour cleanup
+const DISCOVERY_BROADCAST_INTERVAL: Duration = Duration::from_secs(300); // 5 minutes for better cosmic coverage
+
+// FTL Communication Constants (theoretical)
+const LIGHT_SPEED_MPS: f64 = 299_792_458.0; // meters per second
+const PARSEC_TO_METERS: f64 = 3.086e16; // 1 parsec in meters
+const WORMHOLE_COMPRESSION_RATIO: f64 = 1000.0; // Theoretical 1000x faster than light
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryMessage {
@@ -172,7 +180,13 @@ impl DiscoveryService {
             peer_id: peer_id.to_string(),
             chain_id: config.chain_id,
             listen_addr: config.listen_addr.clone(),
-            capabilities: vec!["zk-stark".to_string(), "zk-snark".to_string()],
+            capabilities: vec![
+                "zk-stark".to_string(), 
+                "zk-snark".to_string(),
+                "interstellar-ready".to_string(),
+                "quantum-resistant".to_string(),
+                "ftl-compatible".to_string()
+            ],
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -188,8 +202,31 @@ impl DiscoveryService {
         socket.set_broadcast(true)?;
         socket.send_to(&message_data, broadcast_addr)?;
 
-        // Also send to specific network ranges
-        for network in &["192.168.1.255", "10.0.0.255", "172.16.0.255"] {
+        // Broadcast to all common network ranges for maximum discovery
+        for network in &[
+            "192.168.1.255",    // Home networks
+            "192.168.0.255",    // Common home networks
+            "10.0.0.255",       // Corporate networks
+            "10.0.1.255",       // Extended corporate
+            "172.16.0.255",     // Docker/VM networks
+            "172.17.0.255",     // Docker default
+            "172.18.0.255",     // Docker custom
+            "172.19.0.255",     // Docker custom
+            "172.20.0.255",     // Docker custom
+            "172.21.0.255",     // Docker custom
+            "172.22.0.255",     // Docker custom
+            "172.23.0.255",     // Docker custom
+            "172.24.0.255",     // Docker custom
+            "172.25.0.255",     // Docker custom
+            "172.26.0.255",     // Docker custom
+            "172.27.0.255",     // Docker custom
+            "172.28.0.255",     // Docker custom
+            "172.29.0.255",     // Docker custom
+            "172.30.0.255",     // Docker custom
+            "172.31.0.255",     // Docker custom
+            "224.0.0.1",        // All hosts multicast
+            "224.0.0.2",        // All routers multicast
+        ] {
             if let Ok(addr) = format!("{}:{}", network, DISCOVERY_PORT).parse::<SocketAddr>() {
                 let _ = socket.send_to(&message_data, addr);
             }

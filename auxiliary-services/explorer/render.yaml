@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: dxid-explorer
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: VALIDATOR_RPC
+        value: http://YOUR_VM1_IP:8545
+      - key: BACKUP_RPC
+        value: http://YOUR_VM2_IP:8545
+      - key: EXPLORER_TITLE
+        value: "dxID Layer0 Explorer"
+      - key: EXPLORER_DESCRIPTION
+        value: "Real-time blockchain explorer for dxID Layer0 network"
+    healthCheckPath: /health
+    autoDeploy: true
+    plan: starter

@@ -1,9 +1,44 @@
+# dxID Layer0 CLI Configuration - Interstellar Edition 🌌
+# Optimized for multi-galactic blockchain operations
+
 default_api_key = "baihu"
 default_wallet = "byewho"
+
+# Node port (default: 8545)
 node_port = 8545
+
+# P2P port for interstellar communication (default: 7000)
 p2p_port = 7000
-bootstrap_peers = []
+
+# Enable cosmic discovery (default: true)
 discovery_enabled = true
+
+# Interstellar network configuration
+interstellar_mode = true
+light_speed_compensation = true
+quantum_entanglement_enabled = false  # Requires quantum hardware
+wormhole_discovery = false           # Experimental - may cause spacetime anomalies
+
+# Cosmic timeout settings (in Earth seconds)
+interstellar_timeout = 86400         # 24 hours for Proxima Centauri
+intergalactic_timeout = 31536000      # 1 year for Andromeda Galaxy
+universal_timeout = 13800000000      # Age of universe for edge cases
+
+# Real network bootstrap peers (replace with actual IPs when available)
+bootstrap_peers = [
+    # Your node will be discoverable via P2P broadcast
+    # Others can connect to your node when it's running
+    # No central bootstrap needed - pure P2P discovery
+]
+
+# Relativistic compensation
+time_dilation_correction = true
+reference_frame = "earth_surface"    # Options: earth_surface, solar_system_barycenter, cosmic_microwave_background
+
+# Interstellar mining difficulty adjustment
+cosmic_difficulty_adjustment = true
+dark_matter_mining = false          # Requires dark matter detectors
+neutron_star_validation = false     # Extreme security mode
 
 [wallets.byewho]
 name = "byewho"

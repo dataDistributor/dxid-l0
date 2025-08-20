@@ -1,0 +1,12 @@
+[package]
+name = "zk_test"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+dxid-zk-stark = { path = "../dxid-zk-stark" }
+dxid-zk-snark = { path = "../dxid-zk-snark" }
+anyhow = "1.0"
+tokio = { version = "1.0", features = ["full"] }
