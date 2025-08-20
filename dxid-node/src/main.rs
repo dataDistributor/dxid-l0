@@ -266,8 +266,10 @@ async fn main() -> Result<()> {
     tokio::spawn({
         let app = app.clone();
         async move {
-            let addr = "127.0.0.1:8545";
-            let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+            // Use Railway's PORT environment variable, fallback to 8545
+            let port = std::env::var("PORT").unwrap_or_else(|_| "8545".to_string());
+            let addr = format!("0.0.0.0:{}", port);
+            let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
             println!("RPC listening on http://{}", addr);
             if let Err(e) = axum::serve(listener, app).await {
                 eprintln!("RPC server error: {e}");
