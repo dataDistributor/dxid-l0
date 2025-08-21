@@ -512,15 +512,40 @@ fn stop_node() -> Result<()> {
 fn get_node_status() -> Result<StatusResp> {
     let client = http();
     let rpc_endpoint = resolve_rpc();
-    let status_url = format!("{}/status", rpc_endpoint);
     
-    let resp = client.get(&status_url)
-        .timeout(Duration::from_secs(20))
+    // Try /status endpoint first
+    let status_url = format!("{}/status", rpc_endpoint);
+    match client.get(&status_url)
+        .timeout(Duration::from_secs(10))
+        .send() {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                let resp = h_ok(resp)?;
+                let status: StatusResp = resp.json()?;
+                return Ok(status);
+            }
+        }
+        Err(_) => {}
+    }
+    
+    // Fallback: Check if node is running via /health
+    let health_url = format!("{}/health", rpc_endpoint);
+    let resp = client.get(&health_url)
+        .timeout(Duration::from_secs(10))
         .send()?;
     
-    let resp = h_ok(resp)?;
-    let status: StatusResp = resp.json()?;
-    Ok(status)
+    if resp.status().is_success() {
+        // Node is running but /status endpoint not available (old deployment)
+        // Return a basic status response
+        Ok(StatusResp {
+            height: 0,
+            chain_id: 1337,
+            state_root: "00000000000000000000000000000000".to_string(),
+            last_block_hash: "00000000000000000000000000000000".to_string(),
+        })
+    } else {
+        Err(anyhow!("Node is not responding"))
+    }
 }
 
 // ============================================================================
@@ -554,10 +579,17 @@ fn action_status() -> Result<()> {
             match get_node_status() {
             Ok(status) => {
                 print_success("Node is running!");
-                println!("Height: {}", status.height);
-                println!("Chain ID: {}", status.chain_id);
-                println!("State Root: {}...", &status.state_root[..8]);
-                println!("Last Block Hash: {}...", &status.last_block_hash[..8]);
+                if status.height == 0 && status.state_root == "00000000000000000000000000000000" {
+                    println!("⚠️  Note: Running on old Railway deployment");
+                    println!("   - /status endpoint not available");
+                    println!("   - Some features may be limited");
+                    println!("   - Railway needs to redeploy latest code");
+                } else {
+                    println!("Height: {}", status.height);
+                    println!("Chain ID: {}", status.chain_id);
+                    println!("State Root: {}...", &status.state_root[..8]);
+                    println!("Last Block Hash: {}...", &status.last_block_hash[..8]);
+                }
             }
         Err(e) => {
             print_error(&format!("Node is not responding: {}", e));
