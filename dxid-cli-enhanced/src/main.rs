@@ -959,6 +959,16 @@ fn action_list_api_keys() -> Result<()> {
     let rpc_endpoint = resolve_rpc();
     let apikeys_url = format!("{}/admin/apikeys", rpc_endpoint);
     
+    // First check if the endpoint is available
+    if !check_railway_deployment_status() {
+        print_warning("⚠️  Railway running old deployment");
+        print_error("API key management not available");
+        print_info("This endpoint requires the latest Railway deployment");
+        print_info("Only /health endpoint is currently available");
+        pause();
+        return Ok(());
+    }
+    
     match safe_http_request(&apikeys_url, || {
         let resp = client.get(&apikeys_url)
             .header("X-Admin-Token", &token)
@@ -991,6 +1001,16 @@ fn action_create_api_key() -> Result<()> {
     
     if name.is_empty() {
         print_error("API key name cannot be empty");
+        pause();
+        return Ok(());
+    }
+    
+    // First check if the endpoint is available
+    if !check_railway_deployment_status() {
+        print_warning("⚠️  Railway running old deployment");
+        print_error("API key management not available");
+        print_info("This endpoint requires the latest Railway deployment");
+        print_info("Only /health endpoint is currently available");
         pause();
         return Ok(());
     }
@@ -1036,6 +1056,16 @@ fn action_delete_api_key() -> Result<()> {
     
     if id.is_empty() {
         print_error("API key ID cannot be empty");
+        pause();
+        return Ok(());
+    }
+    
+    // First check if the endpoint is available
+    if !check_railway_deployment_status() {
+        print_warning("⚠️  Railway running old deployment");
+        print_error("API key management not available");
+        print_info("This endpoint requires the latest Railway deployment");
+        print_info("Only /health endpoint is currently available");
         pause();
         return Ok(());
     }
