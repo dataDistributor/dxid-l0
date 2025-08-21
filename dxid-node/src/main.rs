@@ -419,7 +419,31 @@ struct StatusResp {
     chain_id: u32,
 }
 async fn status(State(ctx): State<RpcCtx>) -> Json<StatusResp> {
-    let st = ctx.state.lock();
+    // Try to access state with timeout to prevent deadlocks
+    let st = match tokio::time::timeout(Duration::from_secs(5), tokio::task::spawn_blocking(move || {
+        ctx.state.lock()
+    })).await {
+        Ok(Ok(st)) => st,
+        Ok(Err(_)) => {
+            // State access failed, return basic status
+            return Json(StatusResp {
+                height: 0,
+                last_block_hash: "00000000000000000000000000000000".to_string(),
+                state_root: "00000000000000000000000000000000".to_string(),
+                chain_id: CHAIN_ID,
+            });
+        }
+        Err(_) => {
+            // Timeout, return basic status
+            return Json(StatusResp {
+                height: 0,
+                last_block_hash: "00000000000000000000000000000000".to_string(),
+                state_root: "00000000000000000000000000000000".to_string(),
+                chain_id: CHAIN_ID,
+            });
+        }
+    };
+    
     Json(StatusResp {
         height: st.height,
         last_block_hash: hex::encode(st.last_block_hash),
