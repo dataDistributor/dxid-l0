@@ -420,39 +420,33 @@ struct StatusResp {
 }
 async fn status(State(ctx): State<RpcCtx>) -> Json<StatusResp> {
     // Try to access state with timeout to prevent deadlocks
-    let st = match tokio::time::timeout(Duration::from_secs(5), tokio::task::spawn_blocking(move || {
-        ctx.state.lock()
-    })).await {
-        Ok(Ok(st)) => st,
-        Ok(Err(_)) => {
-            // State access failed, return basic status
-            return Json(StatusResp {
-                height: 0,
-                last_block_hash: "00000000000000000000000000000000".to_string(),
-                state_root: "00000000000000000000000000000000".to_string(),
+    let result = tokio::time::timeout(Duration::from_secs(5), async {
+        let st = ctx.state.lock();
+        (st.height, st.last_block_hash, st.state_root)
+    }).await;
+    
+    match result {
+        Ok((height, last_block_hash, state_root)) => {
+            Json(StatusResp {
+                height,
+                last_block_hash: hex::encode(last_block_hash),
+                state_root: hex::encode(state_root),
                 chain_id: CHAIN_ID,
-            });
+            })
         }
         Err(_) => {
-            // Timeout, return basic status
-            return Json(StatusResp {
+            // Timeout or error, return basic status
+            Json(StatusResp {
                 height: 0,
                 last_block_hash: "00000000000000000000000000000000".to_string(),
                 state_root: "00000000000000000000000000000000".to_string(),
                 chain_id: CHAIN_ID,
-            });
+            })
         }
-    };
-    
-    Json(StatusResp {
-        height: st.height,
-        last_block_hash: hex::encode(st.last_block_hash),
-        state_root: hex::encode(st.state_root),
-        chain_id: CHAIN_ID,
-    })
+    }
 }
 
-async fn watch(State(ctx): State<RpcCtx>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+async fn watch(State(_ctx): State<RpcCtx>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     // TODO: Fix SSE stream after resolving broadcast issues
     let stream = futures_util::stream::empty();
     Sse::new(stream)
