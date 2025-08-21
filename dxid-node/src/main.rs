@@ -243,6 +243,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         // Open endpoints
         .route("/health", get(health))
+        .route("/debug", get(debug_info))
         .route("/status", get(status))
         .route("/watch", get(watch))
         .route("/peers", get(peers))
@@ -408,7 +409,30 @@ fn require_admin(headers: &HeaderMap, ctx: &RpcCtx) -> bool {
 /* ---------- Open endpoints ---------- */
 
 async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "ok": true }))
+    Json(serde_json::json!({ 
+        "ok": true, 
+        "version": "1.0.1",
+        "deployment": "latest"
+    }))
+}
+
+async fn debug_info() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "version": "1.0.1",
+        "deployment": "latest",
+        "endpoints": [
+            "/health",
+            "/status", 
+            "/peers",
+            "/network",
+            "/balance/:addr",
+            "/admin/apikeys"
+        ],
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }))
 }
 
 #[derive(Serialize)]
