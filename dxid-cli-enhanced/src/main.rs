@@ -578,6 +578,19 @@ fn get_node_status() -> Result<StatusResp> {
     }
 }
 
+/// Check if Railway deployment has full API support
+fn check_railway_deployment_status() -> bool {
+    let client = http();
+    let rpc_endpoint = resolve_rpc();
+    
+    // Test if /status endpoint is available
+    let status_url = format!("{}/status", rpc_endpoint);
+    match client.get(&status_url).timeout(Duration::from_secs(5)).send() {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
 // ============================================================================
 // SYSTEM TRAY MANAGEMENT - REMOVED
 // ============================================================================
@@ -603,22 +616,30 @@ fn start_node_simple() -> Result<()> {
 
 /// Check node status action
 fn action_status() -> Result<()> {
-        clear_screen();
+    clear_screen();
     print_header("Node Status");
     
-            match get_node_status() {
-            Ok(status) => {
-                print_success("Node is running!");
-                if status.height == 0 && status.state_root == "00000000000000000000000000000000" {
-                    // Node is running but /status endpoint not available
-                    println!("Node is running (basic mode)");
-                } else {
-                    println!("Height: {}", status.height);
-                    println!("Chain ID: {}", status.chain_id);
-                    println!("State Root: {}...", &status.state_root[..8]);
-                    println!("Last Block Hash: {}...", &status.last_block_hash[..8]);
-                }
+    // Check deployment status first
+    if !check_railway_deployment_status() {
+        print_warning("⚠️  Railway running old deployment");
+        print_info("Only /health endpoint available");
+        println!();
+    }
+    
+    match get_node_status() {
+        Ok(status) => {
+            print_success("Node is running!");
+            if status.height == 0 && status.state_root == "00000000000000000000000000000000" {
+                // Node is running but /status endpoint not available
+                println!("Node is running (basic mode)");
+                println!("Limited functionality due to old Railway deployment");
+            } else {
+                println!("Height: {}", status.height);
+                println!("Chain ID: {}", status.chain_id);
+                println!("State Root: {}...", &status.state_root[..8]);
+                println!("Last Block Hash: {}...", &status.last_block_hash[..8]);
             }
+        }
         Err(e) => {
             print_error(&format!("Node is not responding: {}", e));
             print_info("Try starting the node from Node Management");
@@ -1327,6 +1348,14 @@ fn main() -> Result<()> {
     match is_node_running() {
         Ok(true) => {
             print_success("Node is already running!");
+            
+            // Check if Railway deployment has full API support
+            if !check_railway_deployment_status() {
+                print_warning("⚠️  Railway running old deployment");
+                print_info("Only /health endpoint available");
+                print_info("Most CLI features will be limited");
+            }
+            
             print_info("Use Node Management to control the node");
         }
         Ok(false) => {
