@@ -320,7 +320,37 @@ fn h_ok(resp: Response) -> Result<Response> {
     if resp.status().is_success() {
         Ok(resp)
     } else {
-        Err(anyhow!("HTTP error: {} - {}", resp.status(), resp.text()?))
+        let status = resp.status();
+        let error_text = resp.text().unwrap_or_else(|_| "Unknown error".to_string());
+        Err(anyhow!("HTTP {}: {}", status, error_text))
+    }
+}
+
+/// Check if endpoint is available (returns 404 or other error)
+fn is_endpoint_available(url: &str) -> bool {
+    match http().get(url).timeout(Duration::from_secs(5)).send() {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+/// Safe HTTP request with proper error handling
+fn safe_http_request<F, T>(url: &str, request_fn: F) -> Result<T>
+where
+    F: FnOnce() -> Result<T>,
+{
+    match request_fn() {
+        Ok(result) => Ok(result),
+        Err(e) => {
+            let error_msg = e.to_string();
+            if error_msg.contains("404") || error_msg.contains("Not Found") {
+                Err(anyhow!("Endpoint not available on current deployment: {}", url))
+            } else if error_msg.contains("timeout") || error_msg.contains("timed out") {
+                Err(anyhow!("Request timed out: {}", url))
+            } else {
+                Err(anyhow!("Request failed: {}", error_msg))
+            }
+        }
     }
 }
 
@@ -621,25 +651,33 @@ fn action_balance() -> Result<()> {
         let client = http();
         let rpc_endpoint = resolve_rpc();
         let balance_url = format!("{}/balance/{}", rpc_endpoint, wallet.address);
-        let resp = client.get(&balance_url)
-            .timeout(Duration::from_secs(10))
-            .send()?;
         
-        if !resp.status().is_success() {
-            return Err(anyhow!("Failed to get balance (status: {})", resp.status()));
+        match safe_http_request(&balance_url, || {
+            let resp = client.get(&balance_url)
+                .timeout(Duration::from_secs(10))
+                .send()?;
+            
+            let resp = h_ok(resp)?;
+            let balance: BalanceResp = resp.json()?;
+            Ok(balance)
+        }) {
+            Ok(balance) => {
+                print_success(&format!("Balance for wallet: {}", wallet_name));
+                println!("Address: {}", balance.address);
+                println!("Exists: {}", balance.exists);
+                println!("Balance: {}", balance.balance);
+                println!("Nonce: {}", balance.nonce);
+                println!("Layer0 Balance: {}", balance.layer0_balance);
+                println!("LongYield Balance: {}", balance.longyield_balance);
+            }
+            Err(e) => {
+                print_error(&format!("Failed to get balance: {}", e));
+                if e.to_string().contains("Endpoint not available") {
+                    print_info("This endpoint requires the latest Railway deployment");
+                }
+            }
         }
-        
-        let resp = h_ok(resp)?;
-        let balance: BalanceResp = resp.json()?;
-        
-        print_success(&format!("Balance for wallet: {}", wallet_name));
-        println!("Address: {}", balance.address);
-        println!("Exists: {}", balance.exists);
-        println!("Balance: {}", balance.balance);
-        println!("Nonce: {}", balance.nonce);
-        println!("Layer0 Balance: {}", balance.layer0_balance);
-        println!("LongYield Balance: {}", balance.longyield_balance);
-            } else {
+    } else {
         print_error(&format!("Wallet '{}' not found", wallet_name));
     }
     
@@ -698,22 +736,34 @@ fn action_send() -> Result<()> {
         let client = http();
         let rpc_endpoint = resolve_rpc();
         let submit_url = format!("{}/submitTx", rpc_endpoint);
-        let resp = client.post(&submit_url)
-            .json(&tx_req)
-            .timeout(Duration::from_secs(30))
-            .send()?;
         
-        let resp = h_ok(resp)?;
-        let tx_resp: SubmitTxResp = resp.json()?;
-        
-        if tx_resp.success {
-            print_success("Transaction submitted successfully!");
-            println!("Transaction Hash: {}", tx_resp.transaction_hash);
-            println!("Queued: {}", tx_resp.queued);
-            println!("File Path: {}", tx_resp.file_path);
-                    } else {
-            print_error("Transaction submission failed");
-                    }
+        match safe_http_request(&submit_url, || {
+            let resp = client.post(&submit_url)
+                .json(&tx_req)
+                .timeout(Duration::from_secs(30))
+                .send()?;
+            
+            let resp = h_ok(resp)?;
+            let tx_resp: SubmitTxResp = resp.json()?;
+            Ok(tx_resp)
+        }) {
+            Ok(tx_resp) => {
+                if tx_resp.success {
+                    print_success("Transaction submitted successfully!");
+                    println!("Transaction Hash: {}", tx_resp.transaction_hash);
+                    println!("Queued: {}", tx_resp.queued);
+                    println!("File Path: {}", tx_resp.file_path);
+                } else {
+                    print_error("Transaction submission failed");
+                }
+            }
+            Err(e) => {
+                print_error(&format!("Failed to submit transaction: {}", e));
+                if e.to_string().contains("Endpoint not available") {
+                    print_info("This endpoint requires the latest Railway deployment");
+                }
+            }
+        }
                 } else {
         print_error(&format!("Wallet '{}' not found", wallet_name));
     }
@@ -887,20 +937,29 @@ fn action_list_api_keys() -> Result<()> {
     let client = http();
     let rpc_endpoint = resolve_rpc();
     let apikeys_url = format!("{}/admin/apikeys", rpc_endpoint);
-    let resp = client.get(&apikeys_url)
-        .header("X-Admin-Token", &token)
-        .timeout(Duration::from_secs(10))
-        .send()?;
     
-    if resp.status().is_success() {
+    match safe_http_request(&apikeys_url, || {
+        let resp = client.get(&apikeys_url)
+            .header("X-Admin-Token", &token)
+            .timeout(Duration::from_secs(10))
+            .send()?;
+        
         let keys: serde_json::Value = resp.json()?;
-        println!("\nAPI Keys from node:");
-        println!("{:#}", keys);
-    } else {
-        print_error(&format!("Failed to fetch API keys from node (status: {})", resp.status()));
+        Ok(keys)
+    }) {
+        Ok(keys) => {
+            println!("\nAPI Keys from node:");
+            println!("{:#}", keys);
+        }
+        Err(e) => {
+            print_error(&format!("Failed to fetch API keys: {}", e));
+            if e.to_string().contains("Endpoint not available") {
+                print_info("This endpoint requires the latest Railway deployment");
+            }
+        }
     }
     
-                pause();
+    pause();
     Ok(())
 }
 
@@ -911,7 +970,7 @@ fn action_create_api_key() -> Result<()> {
     
     if name.is_empty() {
         print_error("API key name cannot be empty");
-                pause();
+        pause();
         return Ok(());
     }
     
@@ -920,26 +979,32 @@ fn action_create_api_key() -> Result<()> {
     let client = http();
     let rpc_endpoint = resolve_rpc();
     let apikeys_url = format!("{}/admin/apikeys", rpc_endpoint);
-    let resp = client.post(&apikeys_url)
-        .header("X-Admin-Token", &token)
-        .json(&serde_json::json!({
-            "name": name
-        }))
-        .timeout(Duration::from_secs(10))
-        .send()?;
     
-    if resp.status().is_success() {
+    match safe_http_request(&apikeys_url, || {
+        let resp = client.post(&apikeys_url)
+            .header("X-Admin-Token", &token)
+            .json(&serde_json::json!({
+                "name": name
+            }))
+            .timeout(Duration::from_secs(10))
+            .send()?;
+        
         let result: serde_json::Value = resp.json()?;
-        print_success("API key created successfully!");
-        println!("{:#}", result);
-                            } else {
-        print_error(&format!("Failed to create API key (status: {})", resp.status()));
-        if let Ok(error_text) = resp.text() {
-            println!("Error: {}", error_text);
+        Ok(result)
+    }) {
+        Ok(result) => {
+            print_success("API key created successfully!");
+            println!("{:#}", result);
+        }
+        Err(e) => {
+            print_error(&format!("Failed to create API key: {}", e));
+            if e.to_string().contains("Endpoint not available") {
+                print_info("This endpoint requires the latest Railway deployment");
+            }
         }
     }
     
-                pause();
+    pause();
     Ok(())
 }
 
@@ -950,22 +1015,31 @@ fn action_delete_api_key() -> Result<()> {
     
     if id.is_empty() {
         print_error("API key ID cannot be empty");
-                pause();
+        pause();
         return Ok(());
     }
     
     let client = http();
     let rpc_endpoint = resolve_rpc();
     let delete_url = format!("{}/admin/apikeys/{}", rpc_endpoint, id);
-    let resp = client.delete(&delete_url)
-        .header("X-Admin-Token", &token)
-        .timeout(Duration::from_secs(10))
-        .send()?;
     
-    if resp.status().is_success() {
-        print_success("API key deleted successfully!");
-    } else {
-        print_error(&format!("Failed to delete API key (status: {})", resp.status()));
+    match safe_http_request(&delete_url, || {
+        let resp = client.delete(&delete_url)
+            .header("X-Admin-Token", &token)
+            .timeout(Duration::from_secs(10))
+            .send()?;
+        
+        Ok(())
+    }) {
+        Ok(_) => {
+            print_success("API key deleted successfully!");
+        }
+        Err(e) => {
+            print_error(&format!("Failed to delete API key: {}", e));
+            if e.to_string().contains("Endpoint not available") {
+                print_info("This endpoint requires the latest Railway deployment");
+            }
+        }
     }
     
     pause();
@@ -1083,23 +1157,27 @@ fn action_network_management() -> Result<()> {
                 let client = http();
                 let rpc_endpoint = resolve_rpc();
                 let network_url = format!("{}/network", rpc_endpoint);
-                match client.get(&network_url)
-                    .timeout(Duration::from_secs(5))
-                    .send() {
-                    Ok(resp) => {
-                        if resp.status().is_success() {
-                            let network_status: serde_json::Value = resp.json()?;
-                            println!("\nNetwork Status:");
-                            println!("{:#}", network_status);
-                    } else {
-                            print_error("Failed to get network status");
+                
+                match safe_http_request(&network_url, || {
+                    let resp = client.get(&network_url)
+                        .timeout(Duration::from_secs(5))
+                        .send()?;
+                    
+                    let network_status: serde_json::Value = resp.json()?;
+                    Ok(network_status)
+                }) {
+                    Ok(network_status) => {
+                        println!("\nNetwork Status:");
+                        println!("{:#}", network_status);
+                    }
+                    Err(e) => {
+                        print_error(&format!("Failed to get network status: {}", e));
+                        if e.to_string().contains("Endpoint not available") {
+                            print_info("This endpoint requires the latest Railway deployment");
                         }
-        }
-        Err(_) => {
-                        print_error("Node is not running or network endpoint not available");
-        }
-    }
-    pause();
+                    }
+                }
+                pause();
             }
             "2" => {
                 println!("\nCurrent P2P Settings:");
