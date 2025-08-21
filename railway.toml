@@ -2,7 +2,7 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "./target/release/dxid-node --p2p-listen 0.0.0.0:7000"
+startCommand = "./target/release/dxid-node --no-discovery"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
 

@@ -123,8 +123,8 @@ struct RpcCtx {
 #[derive(Parser, Debug, Clone)]
 #[command(name="dxid-node", version)]
 struct Opts {
-    /// Enable P2P gossip (default: true)
-    #[arg(long, default_value = "true")]
+    /// Enable P2P gossip (default: false for Railway deployment)
+    #[arg(long, default_value = "false")]
     p2p: bool,
 
     /// P2P listen address
