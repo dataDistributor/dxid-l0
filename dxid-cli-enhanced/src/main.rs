@@ -839,7 +839,8 @@ fn action_api_key_management() -> Result<()> {
         match choice.as_str() {
             "1" => {
                 if let Some(key) = &cfg.default_api_key {
-                    println!("Current API key: {}...", &key[..8]);
+                    let display_length = std::cmp::min(8, key.len());
+                    println!("Current API key: {}...", &key[..display_length]);
                 } else {
                     print_info("No API key set");
                 }
