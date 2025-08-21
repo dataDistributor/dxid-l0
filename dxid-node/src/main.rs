@@ -411,8 +411,13 @@ fn require_admin(headers: &HeaderMap, ctx: &RpcCtx) -> bool {
 async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ 
         "ok": true, 
-        "version": "1.0.1",
-        "deployment": "latest"
+        "version": "1.0.2",
+        "deployment": "latest",
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        "message": "Railway deployment test - force redeploy"
     }))
 }
 

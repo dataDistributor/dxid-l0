@@ -1,4 +1,4 @@
-default_api_key = "baihu"
+default_api_key = "c"
 rpc = "https://dxid-l0.railway.app"
 default_wallet = "byewho"
 node_port = 8545
