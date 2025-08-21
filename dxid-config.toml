@@ -1,48 +1,19 @@
-# dxID Layer0 CLI Configuration - Interstellar Edition 🌌
-# Optimized for multi-galactic blockchain operations
-
 default_api_key = "baihu"
-default_wallet = "byewho"
-
-# RPC endpoint for connecting to the dxID Layer0 node
 rpc = "https://dxid-l0.railway.app"
-
-# Node port (default: 8545) - only used for local node
+default_wallet = "byewho"
 node_port = 8545
-
-# P2P port for interstellar communication (default: 7000)
 p2p_port = 7000
-
-# Enable cosmic discovery (default: true)
-discovery_enabled = true
-
-# Interstellar network configuration
-interstellar_mode = true
-light_speed_compensation = true
-quantum_entanglement_enabled = false  # Requires quantum hardware
-wormhole_discovery = false           # Experimental - may cause spacetime anomalies
-
-# Cosmic timeout settings (in Earth seconds)
-interstellar_timeout = 86400         # 24 hours for Proxima Centauri
-intergalactic_timeout = 31536000      # 1 year for Andromeda Galaxy
-universal_timeout = 13800000000      # Age of universe for edge cases
-
-# Real network bootstrap peers - connect to the live dxID Layer0 network
-bootstrap_peers = [
-    "dxid-l0.railway.app:7000"  # Live dxID Layer0 node on Railway
-]
-
-# Relativistic compensation
-time_dilation_correction = true
-reference_frame = "earth_surface"    # Options: earth_surface, solar_system_barycenter, cosmic_microwave_background
-
-# Interstellar mining difficulty adjustment
-cosmic_difficulty_adjustment = true
-dark_matter_mining = false          # Requires dark matter detectors
-neutron_star_validation = false     # Extreme security mode
+bootstrap_peers = ["dxid-l0.railway.app:7000"]
+discovery_enabled = false
 
 [wallets.byewho]
 name = "byewho"
 address = "0505ad198744f68c5ba474486df95b6da4230151b94b1256130d8827cfabc82d"
 secret = "be7f907d2f3f417d394fef362fd6f405cd7e0ab2563956a7b425352248aabd7d"
 created_at = 1755651573
+
+[wallets.test]
+name = "test"
+address = "4b7e4c41457f7b9e7e97444f35e767145a6f34489813103ae92e9e84f6b92a17"
+secret = "fe6920535f4c304e72beec5a39ff57df79e6b2d9ad5290e238adaf838ebf0b46"
+created_at = 1755785197

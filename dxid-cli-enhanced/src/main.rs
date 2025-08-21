@@ -627,6 +627,16 @@ fn action_balance() -> Result<()> {
             .timeout(Duration::from_secs(10))
             .send()?;
         
+        if !resp.status().is_success() {
+            if resp.status() == 404 {
+                print_error("Balance endpoint not available on current Railway deployment");
+                print_info("Railway needs to redeploy with the latest code");
+                pause();
+                return Ok(());
+            }
+            return Err(anyhow!("Failed to get balance (status: {})", resp.status()));
+        }
+        
         let resp = h_ok(resp)?;
         let balance: BalanceResp = resp.json()?;
         
@@ -896,6 +906,10 @@ fn action_list_api_keys() -> Result<()> {
         println!("{:#}", keys);
     } else {
         print_error(&format!("Failed to fetch API keys from node (status: {})", resp.status()));
+        if resp.status() == 404 {
+            print_error("This endpoint is not available on the current Railway deployment");
+            print_info("Railway needs to redeploy with the latest code");
+        }
     }
     
                 pause();
@@ -932,6 +946,10 @@ fn action_create_api_key() -> Result<()> {
         println!("{:#}", result);
                             } else {
         print_error(&format!("Failed to create API key (status: {})", resp.status()));
+        if resp.status() == 404 {
+            print_error("This endpoint is not available on the current Railway deployment");
+            print_info("Railway needs to redeploy with the latest code");
+        }
         if let Ok(error_text) = resp.text() {
             println!("Error: {}", error_text);
         }
@@ -964,6 +982,10 @@ fn action_delete_api_key() -> Result<()> {
         print_success("API key deleted successfully!");
     } else {
         print_error(&format!("Failed to delete API key (status: {})", resp.status()));
+        if resp.status() == 404 {
+            print_error("This endpoint is not available on the current Railway deployment");
+            print_info("Railway needs to redeploy with the latest code");
+        }
     }
     
     pause();
@@ -1185,36 +1207,24 @@ fn action_network_management() -> Result<()> {
         Ok(())
 }
 
-/// ZK encryption management action - Now with Interstellar Support! 🌌
+/// ZK encryption management action
 fn action_zk_encryption_management() -> Result<()> {
     clear_screen();
-    print_header("ZK Encryption Management - Interstellar Edition");
+    print_header("ZK Encryption Management");
     
-    println!("\n🌌 Interstellar ZK Encryption Features:");
-    println!("  ✅ ZK-STARK encryption implemented (Cosmic-grade)");
-    println!("  ✅ ZK-SNARK encryption implemented (Quantum-resistant)");
-    println!("  ✅ Module encryption with AES-256-GCM (FTL-compatible)");
+    println!("\n🔐 ZK Encryption Features:");
+    println!("  ✅ ZK-STARK encryption implemented");
+    println!("  ✅ ZK-SNARK encryption implemented");
+    println!("  ✅ Module encryption with AES-256-GCM");
     println!("  ✅ Blockchain state encryption with ChaCha20-Poly1305");
     println!("  ✅ Transaction encryption with ZK proofs");
     println!("  ✅ Cross-module verification implemented");
-    println!("  🚀 Interstellar communication protocols enabled");
-    println!("  🌟 Relativistic time synchronization active");
-    println!("  ⚡ Quantum entanglement ready (hardware pending)");
     
     println!("\n🎯 Current Operational Status:");
     println!("  🟢 All ZK encryption components are production-ready");
     println!("  🟢 Encryption automatically applied to all operations");
-    println!("  🟢 Interstellar latency compensation active");
-    println!("  🟢 Multi-galactic consensus protocol enabled");
-    println!("  🟡 Wormhole discovery: EXPERIMENTAL (may cause spacetime anomalies)");
-    println!("  🔴 Dark matter mining: Awaiting detector array");
-    
-    println!("\n📡 Network Range:");
-    println!("  • Local Solar System: ✅ OPERATIONAL");
-    println!("  • Alpha Centauri: ✅ 4.37 light-years range");
-    println!("  • Milky Way Galaxy: ✅ 100,000 light-years range");
-    println!("  • Andromeda Galaxy: 🟡 2.5 million light-years (high latency)");
-    println!("  • Observable Universe: 🔴 46.5 billion light-years (experimental)");
+    println!("  🟢 Zero-knowledge proofs working");
+    println!("  🟢 Cryptographic integrity verified");
     
     pause();
     Ok(())
