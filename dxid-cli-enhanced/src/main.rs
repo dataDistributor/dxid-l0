@@ -580,10 +580,8 @@ fn action_status() -> Result<()> {
             Ok(status) => {
                 print_success("Node is running!");
                 if status.height == 0 && status.state_root == "00000000000000000000000000000000" {
-                    println!("⚠️  Note: Running on old Railway deployment");
-                    println!("   - /status endpoint not available");
-                    println!("   - Some features may be limited");
-                    println!("   - Railway needs to redeploy latest code");
+                    // Node is running but /status endpoint not available
+                    println!("Node is running (basic mode)");
                 } else {
                     println!("Height: {}", status.height);
                     println!("Chain ID: {}", status.chain_id);
@@ -628,12 +626,6 @@ fn action_balance() -> Result<()> {
             .send()?;
         
         if !resp.status().is_success() {
-            if resp.status() == 404 {
-                print_error("Balance endpoint not available on current Railway deployment");
-                print_info("Railway needs to redeploy with the latest code");
-                pause();
-                return Ok(());
-            }
             return Err(anyhow!("Failed to get balance (status: {})", resp.status()));
         }
         
@@ -906,10 +898,6 @@ fn action_list_api_keys() -> Result<()> {
         println!("{:#}", keys);
     } else {
         print_error(&format!("Failed to fetch API keys from node (status: {})", resp.status()));
-        if resp.status() == 404 {
-            print_error("This endpoint is not available on the current Railway deployment");
-            print_info("Railway needs to redeploy with the latest code");
-        }
     }
     
                 pause();
@@ -946,10 +934,6 @@ fn action_create_api_key() -> Result<()> {
         println!("{:#}", result);
                             } else {
         print_error(&format!("Failed to create API key (status: {})", resp.status()));
-        if resp.status() == 404 {
-            print_error("This endpoint is not available on the current Railway deployment");
-            print_info("Railway needs to redeploy with the latest code");
-        }
         if let Ok(error_text) = resp.text() {
             println!("Error: {}", error_text);
         }
@@ -982,10 +966,6 @@ fn action_delete_api_key() -> Result<()> {
         print_success("API key deleted successfully!");
     } else {
         print_error(&format!("Failed to delete API key (status: {})", resp.status()));
-        if resp.status() == 404 {
-            print_error("This endpoint is not available on the current Railway deployment");
-            print_info("Railway needs to redeploy with the latest code");
-        }
     }
     
     pause();
