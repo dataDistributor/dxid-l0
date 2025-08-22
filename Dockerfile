@@ -1,5 +1,5 @@
-# Use the official Rust image as a base with newer version
-FROM rust:1.76-slim as builder
+# Use the official Rust image as a base with specific stable version
+FROM rust:1.75.0 as builder
 
 # Set working directory
 WORKDIR /app
@@ -13,8 +13,14 @@ COPY . .
 # Add build timestamp to force rebuild
 RUN echo "Build timestamp: $(date)" > /app/build-info.txt
 
-# Build the release version with clean cache
-RUN cargo clean && cargo build --release --package dxid-node
+# Show Rust and Cargo versions for debugging
+RUN rustc --version && cargo --version
+
+# Show directory contents for debugging
+RUN ls -la
+
+# Build the release version with clean cache and verbose output
+RUN cargo clean && cargo build --release --package dxid-node --verbose
 
 # Create a new stage with a minimal runtime image
 FROM debian:bookworm-slim

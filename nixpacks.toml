@@ -3,8 +3,11 @@ nixPkgs = ["rustc", "cargo", "pkg-config", "openssl", "gcc"]
 
 [phases.install]
 cmds = [
+  "rustc --version",
+  "cargo --version",
+  "ls -la",
   "cargo clean",
-  "cargo build --release --package dxid-node"
+  "cargo build --release --package dxid-node --verbose"
 ]
 
 [start]
@@ -14,5 +17,5 @@ cmd = "./target/release/dxid-node --no-discovery"
 RUST_BACKTRACE = "1"
 CARGO_INCREMENTAL = "0"
 CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"
-BUILD_TIMESTAMP = "2025-08-22-13-35"
-RUST_VERSION = "1.76"
+BUILD_TIMESTAMP = "2025-08-22-13-40"
+RUST_VERSION = "1.75.0"
