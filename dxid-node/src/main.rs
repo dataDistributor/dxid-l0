@@ -123,8 +123,8 @@ struct RpcCtx {
 #[derive(Parser, Debug, Clone)]
 #[command(name="dxid-node", version)]
 struct Opts {
-    /// Enable P2P gossip (default: false for Railway deployment)
-    #[arg(long, default_value = "false")]
+    /// Enable P2P gossip (default: true for local development)
+    #[arg(long, default_value = "true")]
     p2p: bool,
 
     /// P2P listen address
@@ -373,7 +373,7 @@ async fn main() -> Result<()> {
                     "⛓  built block h={} txs={} root={}",
                     block.header.height,
                     block.txs.len(),
-                    hex::encode(block.header.tx_root)
+                    hex::encode(block.header.state_root)
                 );
             }
             Ok(None) => {
@@ -609,6 +609,7 @@ async fn v1_verify_proof(Json(req): Json<VerifyReq>) -> (StatusCode, Json<Verify
 
 #[derive(Serialize)]
 struct BalanceResp {
+    address: String,
     exists: bool,
     balance: String,
     nonce: u64,
@@ -620,6 +621,7 @@ async fn balance(State(ctx): State<RpcCtx>, headers: HeaderMap, Path(addr_hex): 
 -> (StatusCode, Json<BalanceResp>) {
     if !require_api(&headers, &ctx) {
         return (StatusCode::UNAUTHORIZED, Json(BalanceResp { 
+            address: addr_hex.clone(),
             exists:false, 
             balance:"0".into(), 
             nonce:0,
@@ -631,6 +633,7 @@ async fn balance(State(ctx): State<RpcCtx>, headers: HeaderMap, Path(addr_hex): 
     let key = addr_hex.to_lowercase();
     if let Some(acct) = st.accounts.get(&key) {
         (StatusCode::OK, Json(BalanceResp {
+            address: addr_hex.clone(),
             exists: true, 
             balance: acct.balance.to_string(), 
             nonce: acct.nonce,
@@ -638,7 +641,8 @@ async fn balance(State(ctx): State<RpcCtx>, headers: HeaderMap, Path(addr_hex): 
             longyield_balance: acct.longyield_balance.to_string(),
         }))
     } else {
-        (StatusCode::NOT_FOUND, Json(BalanceResp { 
+        (StatusCode::OK, Json(BalanceResp { 
+            address: addr_hex.clone(),
             exists:false, 
             balance:"0".into(), 
             nonce:0,

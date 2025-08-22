@@ -1,0 +1,8 @@
+target/
+.git/
+.gitignore
+README.md
+*.md
+dxid-data/
+test_*.rs
+zk_test/

@@ -1,10 +1,22 @@
-default_api_key = "baihu"
+default_api_key = "5ac4229ea757f86ead663d279658caee26572733d3d23750f9a7175a155e6781"
 rpc = "http://127.0.0.1:8545"
-default_wallet = "byewho"
+default_wallet = "no"
 node_port = 8545
 p2p_port = 7000
 bootstrap_peers = ["dxid-l0.railway.app:7000"]
 discovery_enabled = false
+
+[wallets.test]
+name = "test"
+address = "4b7e4c41457f7b9e7e97444f35e767145a6f34489813103ae92e9e84f6b92a17"
+secret = "fe6920535f4c304e72beec5a39ff57df79e6b2d9ad5290e238adaf838ebf0b46"
+created_at = 1755785197
+
+[wallets.no]
+name = "no"
+address = "dc3a241e4fb239ac79a196ca2b56325fe22f4c816c10bd4b99cee1c422d8e698"
+secret = "b2d8a11114191cb7a138ba6ccbcae6fecd95be004538b391d6012ffdb6c421a2"
+created_at = 1755863713
 
 [wallets.baihu]
 name = "baihu"
@@ -17,9 +29,3 @@ name = "byewho"
 address = "0505ad198744f68c5ba474486df95b6da4230151b94b1256130d8827cfabc82d"
 secret = "be7f907d2f3f417d394fef362fd6f405cd7e0ab2563956a7b425352248aabd7d"
 created_at = 1755651573
-
-[wallets.test]
-name = "test"
-address = "4b7e4c41457f7b9e7e97444f35e767145a6f34489813103ae92e9e84f6b92a17"
-secret = "fe6920535f4c304e72beec5a39ff57df79e6b2d9ad5290e238adaf838ebf0b46"
-created_at = 1755785197

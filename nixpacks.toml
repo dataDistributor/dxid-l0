@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["rustc", "cargo", "pkg-config", "openssl", "gcc"]
+
+[phases.install]
+cmds = [
+  "cargo build --release --package dxid-node"
+]
+
+[start]
+cmd = "./target/release/dxid-node --no-discovery"
+
+[variables]
+RUST_BACKTRACE = "1"
+CARGO_INCREMENTAL = "0"
+CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"

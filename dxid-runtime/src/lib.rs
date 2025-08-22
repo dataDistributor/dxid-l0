@@ -166,7 +166,7 @@ impl State {
         
         let account_hash = blake3::hash(&account_data);
         self.smt.update(addr, Some(*account_hash.as_bytes()));
-        self.state_root = self.smt.root();
+        // Don't update state_root here - let make_block_once handle it
     }
 
     /// Reconstruct SMT from accounts (used when loading from storage)
@@ -185,6 +185,7 @@ impl State {
                 self.smt.update(addr, Some(*account_hash.as_bytes()));
             }
         }
+        // Update state root after reconstruction
         self.state_root = self.smt.root();
     }
 }
@@ -272,18 +273,27 @@ impl Chain {
             let mut empty_block_key = [0u8; 32];
             empty_block_key[0..8].copy_from_slice(&st.height.to_le_bytes());
             empty_block_key[8..16].copy_from_slice(&now_ts().to_le_bytes());
+            empty_block_key[16..24].copy_from_slice(&st.last_block_hash[0..8]); // Include part of last block hash
+            empty_block_key[24..32].copy_from_slice(&(st.height as u64).wrapping_mul(999999).to_le_bytes()); // More entropy
             
             let mut empty_block_data = Vec::new();
             empty_block_data.extend_from_slice(&st.height.to_le_bytes());
             empty_block_data.extend_from_slice(&now_ts().to_le_bytes());
             empty_block_data.extend_from_slice(&st.last_block_hash);
+            empty_block_data.extend_from_slice(&(st.height as u64).wrapping_mul(1337).to_le_bytes()); // Add some entropy
+            empty_block_data.extend_from_slice(&(now_ts() as u64).wrapping_mul(777).to_le_bytes()); // More timestamp entropy
             
             let empty_block_hash = blake3::hash(&empty_block_data);
+            
             st.smt.update(empty_block_key, Some(*empty_block_hash.as_bytes()));
         }
         
         // Recalculate state root AFTER all updates (transactions + empty block data)
         st.state_root = st.smt.root();
+        
+
+        
+
         
         let header = BlockHeader {
             height: st.height,

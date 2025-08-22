@@ -695,6 +695,7 @@ fn action_balance() -> Result<()> {
         
         match safe_http_request(&balance_url, || {
             let resp = client.get(&balance_url)
+                .header("X-Api-Key", cfg.default_api_key.as_deref().unwrap_or(""))
                 .timeout(Duration::from_secs(10))
                 .send()?;
             

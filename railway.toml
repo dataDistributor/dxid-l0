@@ -1,13 +1,4 @@
-[build]
-builder = "nixpacks"
-
 [deploy]
 startCommand = "./target/release/dxid-node --no-discovery"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
-
-# Build optimization for Railway
-[build.environment]
-RUST_BACKTRACE = "1"
-CARGO_INCREMENTAL = "0"
-CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"

@@ -1,48 +1,72 @@
-# Railway Deployment Fix - CRITICAL
+# Railway Deployment Fix
 
-## Current Problem:
-- Railway is running OLD deployment (only /health endpoint works)
-- All other endpoints return 404 (missing)
-- CLI cannot perform blockchain operations
-- State roots are still the same
+## Issue
+The Railway deployment is failing with Docker build errors during the `cargo build --release --package dxid-node` step.
 
-## Required Actions:
+## Root Cause
+The issue is likely caused by:
+1. Platform-specific dependencies in the ZK crates
+2. Build timeouts on Railway
+3. Memory constraints during compilation
 
-### 1. Manual Railway Redeploy (IMMEDIATE)
-1. Go to Railway Dashboard: https://railway.app/dashboard
-2. Find project: dxid-l0
-3. Click "Deployments" tab
-4. Click "Redeploy" button
-5. Watch build logs for errors
+## Solution
+We've implemented several fixes:
 
-### 2. Check Build Logs
-- Look for compilation errors
-- Check for dependency issues
-- Verify build completes successfully
+### 1. Dockerfile
+Created a proper Dockerfile that:
+- Uses multi-stage builds to reduce image size
+- Installs necessary system dependencies
+- Runs as non-root user for security
+- Properly handles the build process
 
-### 3. Verify Deployment
-After redeploy, test these endpoints:
-- ✅ /health (should work)
-- ✅ /status (should work - NEW)
-- ✅ /balance/{address} (should work - NEW)
-- ✅ /admin/apikeys (should work - NEW)
-- ✅ /submitTx (should work - NEW)
+### 2. Nixpacks Configuration
+Updated `nixpacks.toml` to:
+- Include necessary system packages (openssl, gcc)
+- Set proper build environment variables
+- Handle the build process more robustly
 
-### 4. Test CLI Functions
-- ✅ Node status check
-- ✅ Wallet balance
-- ✅ Send transactions
-- ✅ API key management
-- ✅ Network management
+### 3. Railway Configuration
+Simplified `railway.toml` to:
+- Use the correct start command
+- Set proper health check settings
+- Remove problematic configuration options
 
-## Expected Results:
-- All endpoints working
-- Unique state roots per block
-- Full CLI functionality
-- Production-ready blockchain
+## Deployment Steps
 
-## If Railway Still Fails:
-- Check Railway service status
-- Consider switching to different platform
-- Verify GitHub integration
-- Check Railway build limits
+1. **Push the updated code to GitHub**
+   ```bash
+   git add .
+   git commit -m "Fix Railway deployment with Docker and nixpacks"
+   git push origin main
+   ```
+
+2. **Redeploy on Railway**
+   - Go to your Railway project
+   - Trigger a new deployment
+   - Monitor the build logs
+
+3. **Verify Deployment**
+   - Check that the build completes successfully
+   - Verify the health check passes
+   - Test the API endpoints
+
+## Troubleshooting
+
+If the deployment still fails:
+
+1. **Check Build Logs**: Look for specific error messages in Railway build logs
+2. **Memory Issues**: The ZK crates might be using too much memory during compilation
+3. **Dependencies**: Some dependencies might not be available in Railway's environment
+
+## Alternative Solutions
+
+If the issue persists, consider:
+1. **Remove ZK crates temporarily**: The node works fine without them
+2. **Use a different deployment platform**: Consider DigitalOcean, AWS, or Google Cloud
+3. **Optimize dependencies**: Remove unused dependencies to reduce build time
+
+## Current Status
+- ✅ Local build works with ZK crates
+- ✅ Node runs correctly without ZK crates
+- ✅ All API endpoints are functional
+- ⚠️ Railway deployment needs testing with new configuration
