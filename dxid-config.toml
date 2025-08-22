@@ -1,5 +1,5 @@
 default_api_key = "5ac4229ea757f86ead663d279658caee26572733d3d23750f9a7175a155e6781"
-rpc = "http://127.0.0.1:8545"
+rpc = "https://dxid-l0.railway.app"
 default_wallet = "no"
 node_port = 8545
 p2p_port = 7000

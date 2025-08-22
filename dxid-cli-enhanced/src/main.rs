@@ -583,9 +583,22 @@ fn check_railway_deployment_status() -> bool {
     let client = http();
     let rpc_endpoint = resolve_rpc();
     
-    // Test if /status endpoint is available
+    // Test if /status endpoint is available (full API)
     let status_url = format!("{}/status", rpc_endpoint);
     match client.get(&status_url).timeout(Duration::from_secs(5)).send() {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+/// Check if Railway deployment is available at all
+fn check_railway_available() -> bool {
+    let client = http();
+    let rpc_endpoint = resolve_rpc();
+    
+    // Test if /health endpoint is available (basic availability)
+    let health_url = format!("{}/health", rpc_endpoint);
+    match client.get(&health_url).timeout(Duration::from_secs(5)).send() {
         Ok(resp) => resp.status().is_success(),
         Err(_) => false,
     }
@@ -602,8 +615,9 @@ fn check_any_node_running() -> bool {
         Ok(resp) => resp.status().is_success(),
         Err(_) => {
             // If Railway is down, check local node
-            let local_url = "http://127.0.0.1:8545/health";
-            match client.get(local_url).timeout(Duration::from_secs(5)).send() {
+            let cfg = load_config();
+            let local_url = format!("http://127.0.0.1:{}/health", cfg.node_port);
+            match client.get(&local_url).timeout(Duration::from_secs(5)).send() {
                 Ok(resp) => resp.status().is_success(),
                 Err(_) => false,
             }
@@ -1423,20 +1437,29 @@ fn main() -> Result<()> {
     
     if !check_any_node_running() {
         print_warning("⚠️  No node is currently running");
-        print_info("Railway deployment has been removed");
-        print_info("Starting local node automatically...");
         
-        // Auto-start the local node
-        match start_node_background() {
-            Ok(_) => {
-                print_success("Local node started successfully!");
-                print_info("Node is now running on http://127.0.0.1:8545");
-                print_info("Use Node Management to control the node");
-            }
-            Err(e) => {
-                print_error(&format!("Failed to start local node: {}", e));
-                print_info("You can manually start the node from Node Management");
-            }
+        // Check if Railway is available but with limited API
+        if check_railway_available() {
+            print_info("Railway deployment is available (limited API)");
+            print_info("Using Railway deployment for basic operations");
+            print_warning("Some advanced features may not be available");
+        } else {
+                print_info("Railway deployment not available");
+                print_info("Starting local node automatically...");
+                
+                // Auto-start the local node
+                match start_node_background() {
+                    Ok(_) => {
+                        print_success("Local node started successfully!");
+                        let cfg = load_config();
+                        print_info(&format!("Node is now running on http://127.0.0.1:{}", cfg.node_port));
+                        print_info("Use Node Management to control the node");
+                    }
+                    Err(e) => {
+                        print_error(&format!("Failed to start local node: {}", e));
+                        print_info("You can manually start the node from Node Management");
+                    }
+                }
         }
     } else {
         match is_node_running() {
