@@ -1,10 +1,16 @@
-default_api_key = "c"
-rpc = "https://dxid-l0.railway.app"
+default_api_key = "baihu"
+rpc = "http://127.0.0.1:8545"
 default_wallet = "byewho"
 node_port = 8545
 p2p_port = 7000
 bootstrap_peers = ["dxid-l0.railway.app:7000"]
 discovery_enabled = false
+
+[wallets.baihu]
+name = "baihu"
+address = "57aa746c5e6822cb109bdb3c9c6de4cc1c2a8e1e8d179bfb4cac954f11754317"
+secret = "89032b79a52bc3ed8d82fc95a3ca7eedab0f167794e4e98829a82303d747db9f"
+created_at = 1755822969
 
 [wallets.byewho]
 name = "byewho"

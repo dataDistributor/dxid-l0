@@ -266,22 +266,24 @@ impl Chain {
         // Always produce a block (even empty) for Layer0 store of value
         st.height += 1;
         
-        // Recalculate state root after all transactions are applied
-        // This ensures the state root reflects the current state even for empty blocks
-        st.state_root = st.smt.root();
-        
         // For empty blocks, ensure state root changes by including block metadata
         if applied.is_empty() {
-            // Create a special "empty block" account that changes with each block
-            let empty_block_key = [0u8; 32]; // Special key for empty blocks
+            // Create a unique "empty block" key that changes with each block
+            let mut empty_block_key = [0u8; 32];
+            empty_block_key[0..8].copy_from_slice(&st.height.to_le_bytes());
+            empty_block_key[8..16].copy_from_slice(&now_ts().to_le_bytes());
+            
             let mut empty_block_data = Vec::new();
             empty_block_data.extend_from_slice(&st.height.to_le_bytes());
             empty_block_data.extend_from_slice(&now_ts().to_le_bytes());
+            empty_block_data.extend_from_slice(&st.last_block_hash);
             
             let empty_block_hash = blake3::hash(&empty_block_data);
             st.smt.update(empty_block_key, Some(*empty_block_hash.as_bytes()));
-            st.state_root = st.smt.root();
         }
+        
+        // Recalculate state root AFTER all updates (transactions + empty block data)
+        st.state_root = st.smt.root();
         
         let header = BlockHeader {
             height: st.height,

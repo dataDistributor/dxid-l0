@@ -448,31 +448,18 @@ struct StatusResp {
     chain_id: u32,
 }
 async fn status(State(ctx): State<RpcCtx>) -> Json<StatusResp> {
-    // Try to access state with timeout to prevent deadlocks
-    let result = tokio::time::timeout(Duration::from_secs(5), async {
+    // Quick state access without holding lock for too long
+    let (height, last_block_hash, state_root) = {
         let st = ctx.state.lock();
         (st.height, st.last_block_hash, st.state_root)
-    }).await;
+    };
     
-    match result {
-        Ok((height, last_block_hash, state_root)) => {
-            Json(StatusResp {
-                height,
-                last_block_hash: hex::encode(last_block_hash),
-                state_root: hex::encode(state_root),
-                chain_id: CHAIN_ID,
-            })
-        }
-        Err(_) => {
-            // Timeout or error, return basic status
-            Json(StatusResp {
-                height: 0,
-                last_block_hash: "00000000000000000000000000000000".to_string(),
-                state_root: "00000000000000000000000000000000".to_string(),
-                chain_id: CHAIN_ID,
-            })
-        }
-    }
+    Json(StatusResp {
+        height,
+        last_block_hash: hex::encode(last_block_hash),
+        state_root: hex::encode(state_root),
+        chain_id: CHAIN_ID,
+    })
 }
 
 async fn watch(State(_ctx): State<RpcCtx>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {

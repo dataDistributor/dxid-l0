@@ -747,10 +747,16 @@ fn action_send() -> Result<()> {
     if let Some(wallet) = cfg.wallets.get(&wallet_name) {
         let to_address = read_line("Enter recipient address")?;
         let amount_str = read_line("Enter amount")?;
+        if amount_str.trim().is_empty() {
+            print_error("Amount cannot be empty");
+            pause();
+            return Ok(());
+        }
+        
         let fee_str = read_line("Enter fee (optional, press Enter for default)")?;
         
-        let amount: u128 = amount_str.parse()
-            .map_err(|_| anyhow!("Invalid amount"))?;
+        let amount: u128 = amount_str.trim().parse()
+            .map_err(|_| anyhow!("Invalid amount - please enter a valid number"))?;
         
         let fee: u128 = if fee_str.is_empty() {
             1000 // Default fee
