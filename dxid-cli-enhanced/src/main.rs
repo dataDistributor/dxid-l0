@@ -591,6 +591,26 @@ fn check_railway_deployment_status() -> bool {
     }
 }
 
+/// Check if any node is running (local or Railway)
+fn check_any_node_running() -> bool {
+    // First check Railway
+    let client = http();
+    let rpc_endpoint = resolve_rpc();
+    let health_url = format!("{}/health", rpc_endpoint);
+    
+    match client.get(&health_url).timeout(Duration::from_secs(5)).send() {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => {
+            // If Railway is down, check local node
+            let local_url = "http://127.0.0.1:8545/health";
+            match client.get(local_url).timeout(Duration::from_secs(5)).send() {
+                Ok(resp) => resp.status().is_success(),
+                Err(_) => false,
+            }
+        }
+    }
+}
+
 // ============================================================================
 // SYSTEM TRAY MANAGEMENT - REMOVED
 // ============================================================================
@@ -962,9 +982,23 @@ fn action_list_api_keys() -> Result<()> {
     // First check if the endpoint is available
     if !check_railway_deployment_status() {
         print_warning("⚠️  Railway running old deployment");
-        print_error("API key management not available");
-        print_info("This endpoint requires the latest Railway deployment");
-        print_info("Only /health endpoint is currently available");
+        print_info("Showing local API key configuration instead:");
+        
+        let cfg = load_config();
+        if let Some(api_key) = &cfg.default_api_key {
+            println!("\nCurrent API Key: {}", api_key);
+            println!("Status: Configured locally");
+            println!("Note: This is stored in dxid-config.toml");
+        } else {
+            println!("\nNo API key configured locally");
+            println!("Status: Not set");
+        }
+        
+        println!("\nTo manage API keys:");
+        println!("1. Wait for Railway to deploy latest code");
+        println!("2. Or manually edit dxid-config.toml");
+        println!("3. Or use option [2] to set API key locally");
+        
         pause();
         return Ok(());
     }
@@ -1008,9 +1042,11 @@ fn action_create_api_key() -> Result<()> {
     // First check if the endpoint is available
     if !check_railway_deployment_status() {
         print_warning("⚠️  Railway running old deployment");
-        print_error("API key management not available");
-        print_info("This endpoint requires the latest Railway deployment");
-        print_info("Only /health endpoint is currently available");
+        print_error("Server-side API key creation not available");
+        print_info("You can still manage API keys locally:");
+        print_info("1. Use option [2] to set API key in config");
+        print_info("2. Manually edit dxid-config.toml");
+        print_info("3. Wait for Railway to deploy latest code");
         pause();
         return Ok(());
     }
@@ -1063,9 +1099,11 @@ fn action_delete_api_key() -> Result<()> {
     // First check if the endpoint is available
     if !check_railway_deployment_status() {
         print_warning("⚠️  Railway running old deployment");
-        print_error("API key management not available");
-        print_info("This endpoint requires the latest Railway deployment");
-        print_info("Only /health endpoint is currently available");
+        print_error("Server-side API key deletion not available");
+        print_info("You can still manage API keys locally:");
+        print_info("1. Use option [2] to set API key in config");
+        print_info("2. Manually edit dxid-config.toml");
+        print_info("3. Wait for Railway to deploy latest code");
         pause();
         return Ok(());
     }
@@ -1375,70 +1413,90 @@ fn main() -> Result<()> {
     
     // Check node status and auto-start if needed
     print_info("Checking if node is running...");
-    match is_node_running() {
-        Ok(true) => {
-            print_success("Node is already running!");
-            
-            // Check if Railway deployment has full API support
-            if !check_railway_deployment_status() {
-                print_warning("⚠️  Railway running old deployment");
-                print_info("Only /health endpoint available");
-                print_info("Most CLI features will be limited");
+    
+    if !check_any_node_running() {
+        print_warning("⚠️  No node is currently running");
+        print_info("Railway deployment has been removed");
+        print_info("Starting local node automatically...");
+        
+        // Auto-start the local node
+        match start_node_background() {
+            Ok(_) => {
+                print_success("Local node started successfully!");
+                print_info("Node is now running on http://127.0.0.1:8545");
+                print_info("Use Node Management to control the node");
             }
-            
-            print_info("Use Node Management to control the node");
-        }
-        Ok(false) => {
-            print_warning("Node is not running");
-            print_info("Starting node automatically...");
-            
-            // Auto-start the node
-            match start_node_background() {
-                Ok(_) => {
-                    print_success("Node started successfully!");
-                    print_info("Node is now running in background");
-                    
-                    // Give the node a moment to fully initialize
-                    print_info("Waiting for node to be ready...");
-                    std::thread::sleep(Duration::from_secs(3));
-                    
-                    // Verify the node is responding
-                    if is_node_running()? {
-                        print_success("Node is ready and responding!");
-                    } else {
-                        print_warning("Node may still be initializing...");
-                    }
-                }
-                Err(e) => {
-                    print_error(&format!("Failed to start node: {}", e));
-                    print_info("You can manually start the node from Node Management");
-                }
+            Err(e) => {
+                print_error(&format!("Failed to start local node: {}", e));
+                print_info("You can manually start the node from Node Management");
             }
         }
-        Err(e) => {
-            print_warning(&format!("Unable to check node status: {}", e));
-            print_info("Attempting to start node...");
-            
-            // Try to start node anyway
-            match start_node_background() {
-                Ok(_) => {
-                    print_success("Node started successfully!");
-                    print_info("Node is now running in background");
-                    
-                    // Give the node a moment to fully initialize
-                    print_info("Waiting for node to be ready...");
-                    std::thread::sleep(Duration::from_secs(3));
-                    
-                    // Verify the node is responding
-                    if is_node_running()? {
-                        print_success("Node is ready and responding!");
-                    } else {
-                        print_warning("Node may still be initializing...");
+    } else {
+        match is_node_running() {
+            Ok(true) => {
+                print_success("Node is already running!");
+                
+                // Check if Railway deployment has full API support
+                if !check_railway_deployment_status() {
+                    print_warning("⚠️  Railway running old deployment");
+                    print_info("Only /health endpoint available");
+                    print_info("Most CLI features will be limited");
+                }
+                
+                print_info("Use Node Management to control the node");
+            }
+            Ok(false) => {
+                print_warning("Node is not running");
+                print_info("Starting node automatically...");
+                
+                // Auto-start the node
+                match start_node_background() {
+                    Ok(_) => {
+                        print_success("Node started successfully!");
+                        print_info("Node is now running in background");
+                        
+                        // Give the node a moment to fully initialize
+                        print_info("Waiting for node to be ready...");
+                        std::thread::sleep(Duration::from_secs(3));
+                        
+                        // Verify the node is responding
+                        if is_node_running()? {
+                            print_success("Node is ready and responding!");
+                        } else {
+                            print_warning("Node may still be initializing...");
+                        }
+                    }
+                    Err(e) => {
+                        print_error(&format!("Failed to start node: {}", e));
+                        print_info("You can manually start the node from Node Management");
                     }
                 }
-                Err(e) => {
-                    print_error(&format!("Failed to start node: {}", e));
-                    print_info("You can manually start the node from Node Management");
+            }
+            Err(e) => {
+                print_warning(&format!("Unable to check node status: {}", e));
+                print_info("Attempting to start node...");
+                
+                // Try to start node anyway
+                match start_node_background() {
+                    Ok(_) => {
+                        print_success("Node started successfully!");
+                        print_info("Node is now running in background");
+                        
+                        // Give the node a moment to fully initialize
+                        print_info("Waiting for node to be ready...");
+                        std::thread::sleep(Duration::from_secs(3));
+                        
+                        // Verify the node is responding
+                        if is_node_running()? {
+                            print_success("Node is ready and responding!");
+                        } else {
+                            print_warning("Node may still be initializing...");
+                        }
+                    }
+                    Err(e) => {
+                        print_error(&format!("Failed to start node: {}", e));
+                        print_info("You can manually start the node from Node Management");
+                    }
                 }
             }
         }
