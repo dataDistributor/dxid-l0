@@ -1,5 +1,12 @@
 # Explicit Dockerfile for Railway - force it to use this
-FROM rust:1.74.0 as builder
+FROM rust:1.76.0 as builder
+
+# Install system dependencies that might be needed
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
