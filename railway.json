@@ -4,7 +4,6 @@
     "buildCommand": "cargo build --release"
   },
   "deploy": {
-    "startCommand": "./target/release/dxid-node --no-discovery",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300
   }
