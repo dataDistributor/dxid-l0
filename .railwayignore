@@ -1,0 +1,4 @@
+# Force Railway to use our Dockerfile
+# Ignore any auto-detected build systems
+nixpacks.toml
+railway.json
