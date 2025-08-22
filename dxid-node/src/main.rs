@@ -9,8 +9,8 @@ use axum::{
 use clap::Parser;
 use dxid_crypto::ENGINE as STARK;
 use dxid_crypto::StarkSignEngine;
-use dxid_runtime::{Chain, State as ChainState, CHAIN_ID, Account};
-use futures_util::{future, stream::Stream, StreamExt};
+use dxid_runtime::{Chain, State as ChainState, CHAIN_ID};
+use futures_util::stream::Stream;
 use hmac::{Hmac, Mac};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
@@ -19,11 +19,11 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use std::{convert::Infallible, fs, path::PathBuf, sync::Arc, time::Duration};
 use tokio::{sync::broadcast, time::sleep};
-use tracing::{info, warn};
+use tracing::warn;
 
 // P2P
 use dxid_p2p::{self, NetConfig, Network};
-use dxid_p2p::types::{GossipBlock, GossipTx, Hello};
+use dxid_p2p::types::{GossipBlock, GossipTx};
 
 // Global P2P handle
 static P2P_NET: OnceCell<Arc<Network>> = OnceCell::new();
@@ -449,10 +449,11 @@ struct StatusResp {
 }
 async fn status(State(ctx): State<RpcCtx>) -> Json<StatusResp> {
     // Quick state access without holding lock for too long
-    let (height, last_block_hash, state_root) = {
-        let st = ctx.state.lock();
-        (st.height, st.last_block_hash, st.state_root)
-    };
+    let st = ctx.state.lock();
+    let height = st.height;
+    let last_block_hash = st.last_block_hash;
+    let state_root = st.state_root;
+    drop(st); // Explicitly drop the lock
     
     Json(StatusResp {
         height,
@@ -462,7 +463,7 @@ async fn status(State(ctx): State<RpcCtx>) -> Json<StatusResp> {
     })
 }
 
-async fn watch(State(_ctx): State<RpcCtx>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+async fn watch(_state: State<RpcCtx>) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     // TODO: Fix SSE stream after resolving broadcast issues
     let stream = futures_util::stream::empty();
     Sse::new(stream)
