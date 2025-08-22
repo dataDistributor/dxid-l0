@@ -1,5 +1,5 @@
-# Use the official Rust image as a base with specific stable version
-FROM rust:1.75.0 as builder
+# Use the official Rust image as a base with older stable version
+FROM rust:1.74.0 as builder
 
 # Set working directory
 WORKDIR /app
@@ -19,8 +19,10 @@ RUN rustc --version && cargo --version
 # Show directory contents for debugging
 RUN ls -la
 
-# Build the release version with clean cache and verbose output
-RUN cargo clean && cargo build --release --package dxid-node --verbose
+# Try to build with more conservative approach
+RUN cargo clean
+RUN cargo check --package dxid-node
+RUN cargo build --release --package dxid-node
 
 # Create a new stage with a minimal runtime image
 FROM debian:bookworm-slim

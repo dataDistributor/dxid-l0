@@ -6,8 +6,6 @@ members = [
   "dxid-node",
   "dxid-cli-enhanced",
   "dxid-p2p",
-  "dxid-zk-stark",
-  "dxid-zk-snark",
   "dxid-integration"
 ]
 resolver = "2"

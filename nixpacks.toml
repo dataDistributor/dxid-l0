@@ -7,7 +7,8 @@ cmds = [
   "cargo --version",
   "ls -la",
   "cargo clean",
-  "cargo build --release --package dxid-node --verbose"
+  "cargo check --package dxid-node",
+  "cargo build --release --package dxid-node"
 ]
 
 [start]
@@ -17,5 +18,5 @@ cmd = "./target/release/dxid-node --no-discovery"
 RUST_BACKTRACE = "1"
 CARGO_INCREMENTAL = "0"
 CARGO_PROFILE_RELEASE_OPT_LEVEL = "z"
-BUILD_TIMESTAMP = "2025-08-22-13-40"
-RUST_VERSION = "1.75.0"
+BUILD_TIMESTAMP = "2025-08-22-13-45"
+RUST_VERSION = "1.74.0"
