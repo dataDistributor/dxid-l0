@@ -1,5 +1,5 @@
-# Minimal Dockerfile for Railway - focusing on getting it to work
-FROM rust:1.74.0
+# Explicit Dockerfile for Railway - force it to use this
+FROM rust:1.74.0 as builder
 
 # Set working directory
 WORKDIR /app
@@ -7,14 +7,26 @@ WORKDIR /app
 # Copy the entire project
 COPY . .
 
-# Try building the entire workspace first to see if the issue is package-specific
+# Build the entire workspace
 RUN cargo build --release
+
+# Create a minimal runtime image
+FROM debian:bookworm-slim as runtime
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Copy the binary from builder
+COPY --from=builder /app/target/release/dxid-node /usr/local/bin/dxid-node
 
 # Create data directory
 RUN mkdir -p /app/dxid-data
+
+# Set working directory
+WORKDIR /app
 
 # Expose the port
 EXPOSE 8545
 
 # Set the entrypoint
-ENTRYPOINT ["./target/release/dxid-node", "--no-discovery"]
+ENTRYPOINT ["/usr/local/bin/dxid-node", "--no-discovery"]
