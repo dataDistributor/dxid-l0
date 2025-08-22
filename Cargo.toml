@@ -5,7 +5,6 @@ members = [
   "dxid-crypto",
   "dxid-node",
   "dxid-cli-enhanced",
-  "dxid-p2p",
   "dxid-integration"
 ]
 resolver = "2"

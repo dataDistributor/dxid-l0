@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy the entire project
 COPY . .
 
-# Simple build attempt without verbose flags to reduce noise
-RUN cargo build --release --package dxid-node
+# Try building the entire workspace first to see if the issue is package-specific
+RUN cargo build --release
 
 # Create data directory
 RUN mkdir -p /app/dxid-data
