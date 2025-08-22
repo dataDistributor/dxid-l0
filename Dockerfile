@@ -4,11 +4,17 @@ FROM rust:1.75-slim as builder
 # Set working directory
 WORKDIR /app
 
+# Clear cargo cache to force clean build
+RUN rm -rf /usr/local/cargo/registry/cache /usr/local/cargo/git/db
+
 # Copy the entire project
 COPY . .
 
-# Build the release version
-RUN cargo build --release --package dxid-node
+# Add build timestamp to force rebuild
+RUN echo "Build timestamp: $(date)" > /app/build-info.txt
+
+# Build the release version with clean cache
+RUN cargo clean && cargo build --release --package dxid-node
 
 # Create a new stage with a minimal runtime image
 FROM debian:bookworm-slim
@@ -26,6 +32,7 @@ WORKDIR /app
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/target/release/dxid-node /app/dxid-node
+COPY --from=builder /app/build-info.txt /app/build-info.txt
 
 # Create data directory
 RUN mkdir -p /app/dxid-data && chown -R dxid:dxid /app
