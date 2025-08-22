@@ -1,0 +1,7 @@
+[build]
+builder = "dockerfile"
+
+[deploy]
+startCommand = "./target/release/dxid-node --no-discovery"
+healthcheckPath = "/health"
+healthcheckTimeout = 300
