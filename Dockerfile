@@ -7,11 +7,8 @@ WORKDIR /app
 # Copy the entire project
 COPY . .
 
-# Try building just the core dependencies first
-RUN cargo build --release --package dxid-crypto --package dxid-smt --package dxid-runtime
-
-# Then build the node
-RUN cargo build --release --package dxid-node
+# Build just the dxid-node binary
+RUN cargo build --release --bin dxid-node
 
 # Create a minimal runtime image
 FROM debian:bookworm-slim as runtime
