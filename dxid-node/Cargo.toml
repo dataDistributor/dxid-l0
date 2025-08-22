@@ -10,7 +10,7 @@ clap = { version = "4.5", features = ["derive"] }
 dxid-runtime = { path = "../dxid-runtime" }
 dxid-crypto = { path = "../dxid-crypto" }
 dxid-smt = { path = "../dxid-smt" }
-dxid-p2p = { path = "../dxid-p2p" }      
+# dxid-p2p = { path = "../dxid-p2p" }      
 
 futures-util = "0.3"
 hmac = "0.12"

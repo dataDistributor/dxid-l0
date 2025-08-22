@@ -764,7 +764,6 @@ dependencies = [
  "clap",
  "config",
  "dxid-crypto",
- "dxid-p2p",
  "dxid-runtime",
  "dxid-smt",
  "futures-util",

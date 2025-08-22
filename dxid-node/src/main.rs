@@ -21,12 +21,15 @@ use std::{convert::Infallible, fs, path::PathBuf, sync::Arc, time::Duration};
 use tokio::{sync::broadcast, time::sleep};
 use tracing::warn;
 
-// P2P
-use dxid_p2p::{self, NetConfig, Network};
-use dxid_p2p::types::{GossipBlock, GossipTx};
+// P2P - temporarily disabled
+// use dxid_p2p::{self, NetConfig, Network};
+// use dxid_p2p::types::{GossipBlock, GossipTx};
 
-// Global P2P handle
-static P2P_NET: OnceCell<Arc<Network>> = OnceCell::new();
+// Dummy Network type for compilation
+struct Network;
+
+// Global P2P handle - temporarily disabled
+// static P2P_NET: OnceCell<Arc<Network>> = OnceCell::new();
 
 // Network discovery is now handled by the P2P discovery service
 // No more file-based discovery needed - it's all automatic!
@@ -188,56 +191,9 @@ async fn main() -> Result<()> {
         hex::encode(*blake3::hash(seed.to_string().as_bytes()).as_bytes())
     };
 
-    let maybe_net: Option<Arc<Network>> = if opts.p2p {
-        println!("🌐 Starting P2P network with automatic peer discovery...");
-        
-        let mut net = dxid_p2p::start(NetConfig {
-            chain_id: CHAIN_ID,
-            genesis_hash,
-            listen_addr: opts.p2p_listen.clone(),
-            bootstrap_peers: opts.p2p_bootstrap.clone(),
-            enable_encryption: true,
-            max_peers: 50,
-            heartbeat_interval: 30,
-            auto_discovery: !opts.no_discovery,
-            discovery_interval: 60,
-        }).await?;
-        
-        // Start listening
-        net.start_listening().await?;
-        
-        // Spawn P2P listener (handles incoming connections)
-        let net_clone = net.clone();
-        tokio::spawn(async move {
-            if let Err(e) = net_clone.run_listener().await {
-                eprintln!("P2P listener error: {}", e);
-            }
-        });
-        
-        // Spawn P2P event loop (handles messages and heartbeat)
-        let net_clone = net.clone();
-        tokio::spawn(async move {
-            if let Err(e) = net_clone.run_event_loop().await {
-                eprintln!("P2P event loop error: {}", e);
-            }
-        });
-        
-        // Spawn P2P discovery (automatically finds and connects to peers)
-        let net_clone = net.clone();
-        tokio::spawn(async move {
-            if let Err(e) = net_clone.run_discovery().await {
-                eprintln!("P2P discovery error: {}", e);
-            }
-        });
-        
-        let net = Arc::new(net);
-        P2P_NET.set(net.clone()).ok();
-        println!("✅ P2P network started successfully with automatic peer discovery");
-
-        Some(net)
-    } else {
-        None
-    };
+    // P2P temporarily disabled for Railway build
+    let maybe_net: Option<Arc<Network>> = None;
+    println!("🌐 P2P network temporarily disabled for Railway build");
 
     // ===== HTTP RPC =====
     let app = Router::new()
@@ -352,22 +308,22 @@ async fn main() -> Result<()> {
                     }
                 }
 
-                // Gossip the built block
-                if let Some(net) = P2P_NET.get() {
-                    let gb = GossipBlock {
-                        height: block.header.height,
-                        hash: format!("block-{}", block.header.height), // Simplified hash
-                        parent_hash: format!("block-{}", block.header.height.saturating_sub(1)), // Simplified parent
-                        state_root: hex::encode(block.header.state_root),
-                        tx_ids: block.txs.iter().map(|tx| {
-                            hex::encode(blake3::hash(&serde_json::to_vec(tx).unwrap_or_default()).as_bytes())
-                        }).collect(),
-                        body: serde_json::to_value(&block).unwrap_or(serde_json::json!({})),
-                    };
-                    if let Err(e) = net.publish_block(gb).await {
-                        warn!("Failed to publish block: {}", e);
-                    }
-                }
+                // Gossip the built block - P2P temporarily disabled
+                // if let Some(net) = P2P_NET.get() {
+                //     let gb = GossipBlock {
+                //         height: block.header.height,
+                //         hash: format!("block-{}", block.header.height), // Simplified hash
+                //         parent_hash: format!("block-{}", block.header.height.saturating_sub(1)), // Simplified parent
+                //         state_root: hex::encode(block.header.state_root),
+                //         tx_ids: block.txs.iter().map(|tx| {
+                //             hex::encode(blake3::hash(&serde_json::to_vec(tx).unwrap_or_default()).as_bytes())
+                //         }).collect(),
+                //         body: serde_json::to_value(&block).unwrap_or(serde_json::json!({})),
+                //     };
+                //     if let Err(e) = net.publish_block(gb).await {
+                //         warn!("Failed to publish block: {}", e);
+                //     }
+                // }
 
                 println!(
                     "⛓  built block h={} txs={} root={}",
@@ -470,52 +426,29 @@ async fn watch(_state: State<RpcCtx>) -> Sse<impl Stream<Item = Result<Event, In
 }
 
 async fn peers(State(_ctx): State<RpcCtx>) -> Json<serde_json::Value> {
-    if let Some(net) = P2P_NET.get() {
-        let peers = net.connected_peers().await;
-        let stats = net.get_stats().await;
-        Json(serde_json::json!({
-            "peers": peers,
-            "stats": {
-                "total_peers": stats.total_peers,
-                "connected_peers": stats.connected_peers,
-                "peers_with_zk_stark": stats.peers_with_zk_stark,
-                "peers_with_zk_snark": stats.peers_with_zk_snark,
-                "messages_sent": stats.messages_sent,
-                "messages_received": stats.messages_received
-            }
-        }))
-    } else {
-        Json(serde_json::json!({ 
-            "peers": Vec::<String>::new(),
-            "stats": {
-                "total_peers": 0,
-                "connected_peers": 0,
-                "peers_with_zk_stark": 0,
-                "peers_with_zk_snark": 0,
-                "messages_sent": 0,
-                "messages_received": 0
-            }
-        }))
-    }
+    // P2P temporarily disabled
+    Json(serde_json::json!({ 
+        "peers": Vec::<String>::new(),
+        "stats": {
+            "total_peers": 0,
+            "connected_peers": 0,
+            "peers_with_zk_stark": 0,
+            "peers_with_zk_snark": 0,
+            "messages_sent": 0,
+            "messages_received": 0
+        }
+    }))
 }
 
 async fn network_status(State(_ctx): State<RpcCtx>) -> Json<serde_json::Value> {
-    let mut status = serde_json::json!({
-        "auto_discovery_enabled": true,
+    // P2P temporarily disabled
+    let status = serde_json::json!({
+        "auto_discovery_enabled": false,
         "p2p_enabled": false,
         "chain_id": CHAIN_ID,
         "peer_count": 0,
         "discovery_active": false,
     });
-
-    if let Some(net) = P2P_NET.get() {
-        let stats = net.get_stats().await;
-        status["p2p_enabled"] = serde_json::Value::Bool(true);
-        status["peer_count"] = serde_json::Value::Number(serde_json::Number::from(stats.connected_peers));
-        status["discovery_active"] = serde_json::Value::Bool(stats.discovery_enabled);
-        status["total_peers"] = serde_json::Value::Number(serde_json::Number::from(stats.total_peers));
-        status["bootstrap_peers"] = serde_json::Value::Number(serde_json::Number::from(stats.bootstrap_peers));
-    }
 
     Json(status)
 }
@@ -721,23 +654,23 @@ async fn submit_tx(State(ctx): State<RpcCtx>, headers: HeaderMap, Json(body): Js
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(SubmitTxResp { queued:false, file:"".into() }));
     }
 
-    // Gossip the tx
-    if let Some(net) = P2P_NET.get() {
-        let id = blake3::hash(serde_json::to_string(&tx).unwrap().as_bytes());
-        let wire = GossipTx {
-            id: hex::encode(id.as_bytes()),
-            body: serde_json::json!({
-                "from": body.from,
-                "to": body.to,
-                "amount": body.amount,
-                "fee": body.fee,
-                "signature": body.signature.clone(),
-            }),
-        };
-        if let Err(e) = net.publish_tx(wire).await {
-            warn!("Failed to publish transaction: {}", e);
-        }
-    }
+    // Gossip the tx - P2P temporarily disabled
+    // if let Some(net) = P2P_NET.get() {
+    //     let id = blake3::hash(serde_json::to_string(&tx).unwrap().as_bytes());
+    //     let wire = GossipTx {
+    //         id: hex::encode(id.as_bytes()),
+    //         body: serde_json::json!({
+    //             "from": body.from,
+    //             "to": body.to,
+    //             "amount": body.amount,
+    //             "fee": body.fee,
+    //             "signature": body.signature.clone(),
+    //         }),
+    //     };
+    //     if let Err(e) = net.publish_tx(wire).await {
+    //         warn!("Failed to publish transaction: {}", e);
+    //     }
+    // }
 
     (StatusCode::OK, Json(SubmitTxResp { queued:true, file: path.to_string_lossy().to_string() }))
 }
@@ -800,24 +733,24 @@ async fn layer0_transfer(State(ctx): State<RpcCtx>, headers: HeaderMap, Json(bod
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(SubmitTxResp { queued:false, file:"".into() }));
     }
 
-    // Gossip the tx
-    if let Some(net) = P2P_NET.get() {
-        let id = blake3::hash(serde_json::to_string(&tx).unwrap().as_bytes());
-        let wire = GossipTx {
-            id: hex::encode(id.as_bytes()),
-            body: serde_json::json!({
-                "from": body.from,
-                "to": body.to,
-                "amount": body.amount,
-                "fee": body.fee,
-                "signature": body.signature.clone(),
-                "token_type": "Layer0",
-            }),
-        };
-        if let Err(e) = net.publish_tx(wire).await {
-            warn!("Failed to publish Layer0 transaction: {}", e);
-        }
-    }
+    // Gossip the tx - P2P temporarily disabled
+    // if let Some(net) = P2P_NET.get() {
+    //     let id = blake3::hash(serde_json::to_string(&tx).unwrap().as_bytes());
+    //     let wire = GossipTx {
+    //         id: hex::encode(id.as_bytes()),
+    //         body: serde_json::json!({
+    //             "from": body.from,
+    //             "to": body.to,
+    //             "amount": body.amount,
+    //             "fee": body.fee,
+    //             "signature": body.signature.clone(),
+    //             "token_type": "Layer0",
+    //         }),
+    //     };
+    //     if let Err(e) = net.publish_tx(wire).await {
+    //         warn!("Failed to publish Layer0 transaction: {}", e);
+    //     }
+    // }
 
     (StatusCode::OK, Json(SubmitTxResp { queued:true, file: path.to_string_lossy().to_string() }))
 }
@@ -880,24 +813,24 @@ async fn longyield_transfer(State(ctx): State<RpcCtx>, headers: HeaderMap, Json(
         return (StatusCode::INTERNAL_SERVER_ERROR, Json(SubmitTxResp { queued:false, file:"".into() }));
     }
 
-    // Gossip the tx
-    if let Some(net) = P2P_NET.get() {
-        let id = blake3::hash(serde_json::to_string(&tx).unwrap().as_bytes());
-        let wire = GossipTx {
-            id: hex::encode(id.as_bytes()),
-            body: serde_json::json!({
-                "from": body.from,
-                "to": body.to,
-                "amount": body.amount,
-                "fee": body.fee,
-                "signature": body.signature.clone(),
-                "token_type": "LongYield",
-            }),
-        };
-        if let Err(e) = net.publish_tx(wire).await {
-            warn!("Failed to publish LongYield transaction: {}", e);
-        }
-    }
+    // Gossip the tx - P2P temporarily disabled
+    // if let Some(net) = P2P_NET.get() {
+    //     let id = blake3::hash(serde_json::to_string(&tx).unwrap().as_bytes());
+    //     let wire = GossipTx {
+    //         id: hex::encode(id.as_bytes()),
+    //         body: serde_json::json!({
+    //             "from": body.from,
+    //             "to": body.to,
+    //             "amount": body.amount,
+    //             "fee": body.fee,
+    //             "signature": body.signature.clone(),
+    //             "token_type": "LongYield",
+    //         }),
+    //     };
+    //     if let Err(e) = net.publish_tx(wire).await {
+    //         warn!("Failed to publish LongYield transaction: {}", e);
+    //     }
+    // }
 
     (StatusCode::OK, Json(SubmitTxResp { queued:true, file: path.to_string_lossy().to_string() }))
 }
