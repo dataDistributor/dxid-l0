@@ -13,8 +13,14 @@ RUN rustc --version && cargo --version
 # Show directory contents for debugging
 RUN ls -la
 
-# Build the release version
-RUN cargo build --release --package dxid-node
+# Check workspace structure
+RUN ls -la dxid-node/
+
+# Show dependencies
+RUN cargo tree --package dxid-node || echo "cargo tree failed"
+
+# Build the release version with verbose output
+RUN cargo build --release --package dxid-node --verbose
 
 # Create data directory
 RUN mkdir -p /app/dxid-data
