@@ -1,5 +1,5 @@
 # Explicit Dockerfile for Railway - force it to use this
-FROM rust:1.76.0 as builder
+FROM rust:latest as builder
 
 # Install system dependencies that might be needed
 RUN apt-get update && apt-get install -y \
