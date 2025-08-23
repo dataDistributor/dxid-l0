@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["rust", "pkg-config", "openssl", "build-essential"]
+
+[phases.install]
+cmds = ["cargo build --release --bin dxid-node"]
+
+[start]
+cmd = "./target/release/dxid-node"
+
+[variables]
+RUST_VERSION = "1.78.0"
