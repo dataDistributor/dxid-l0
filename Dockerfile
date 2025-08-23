@@ -33,7 +33,7 @@ RUN mkdir -p /app/dxid-data
 WORKDIR /app
 
 # Expose the port
-EXPOSE 8545
+EXPOSE 8080
 
 # Set the entrypoint
-ENTRYPOINT ["/usr/local/bin/dxid-node", "--no-discovery"]
+ENTRYPOINT ["/usr/local/bin/dxid-node"]

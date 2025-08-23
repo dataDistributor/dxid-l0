@@ -1,10 +1,11 @@
 {
   "build": {
-    "builder": "nixpacks",
-    "buildCommand": "cargo build --release"
+    "builder": "dockerfile"
   },
   "deploy": {
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 300
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "on_failure",
+    "restartPolicyMaxRetries": 10
   }
 }
