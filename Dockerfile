@@ -1,12 +1,15 @@
 # Render.com Dockerfile for dxID Layer0
-FROM rust:1.78.0 as builder
+FROM rust:1.82.0 as builder
 
-# Install system dependencies
+# Install system dependencies that might be needed
 RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Add rebuild trigger
+RUN echo "Railway redeploy trigger: $(date)" > /tmp/rebuild_marker
 
 # Set working directory
 WORKDIR /app

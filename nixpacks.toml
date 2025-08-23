@@ -8,4 +8,4 @@ cmds = ["cargo build --release --bin dxid-node"]
 cmd = "./target/release/dxid-node"
 
 [variables]
-RUST_VERSION = "1.78.0"
+RUST_VERSION = "1.82.0"

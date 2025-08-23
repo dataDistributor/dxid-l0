@@ -16,7 +16,7 @@
    - **Health Check Path**: `/health`
 
 3. **Environment Variables**
-   - `RUST_VERSION`: `1.78.0`
+   - `RUST_VERSION`: `1.82.0`
    - `PORT`: `8080`
 
 4. **Deploy**
