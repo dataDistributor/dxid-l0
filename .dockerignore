@@ -1,8 +1,10 @@
+# Docker ignore file to prevent caching issues
 target/
+Cargo.lock
 .git/
-.gitignore
-README.md
 *.md
-dxid-data/
-test_*.rs
-zk_test/
+!README.md
+*.tmp
+*.log
+.env
+.env.*

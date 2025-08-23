@@ -1,5 +1,5 @@
-# Explicit Dockerfile for Railway - force it to use this
-FROM rust:latest as builder
+# FORCE RAILWAY REDEPLOY - Updated Dockerfile 2025-01-22
+FROM rust:1.78.0 as builder
 
 # Install system dependencies that might be needed
 RUN apt-get update && apt-get install -y \
@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Add rebuild trigger
+RUN echo "Railway redeploy trigger: $(date)" > /tmp/rebuild_marker
 
 # Set working directory
 WORKDIR /app
